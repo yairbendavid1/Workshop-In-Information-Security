@@ -19,6 +19,12 @@ static struct nf_hook_ops forward_hook_point;        // forward hook point
 static struct nf_hook_ops output_hook_point;     // output hook point
 
 
+/* -----------  functions declarations -------------*/
+
+static int initiate_hook_point(struct nf_hook_ops *my_op, enum nf_inet_hooks hook_point_type); // This function registers a hook at the given hook point.
+static unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook_state *state); // This function is called when a packet is received at one of the hook points.
+static int __init my_module_init_function(void);   // This function is called when the module is loaded.
+static void __exit my_module_exit_function(void);  // This function is called when the module is unloaded.
 
 // This function is called when the module is loaded.
 // It registers the hooks at the input, forward, output points.
