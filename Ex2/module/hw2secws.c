@@ -71,7 +71,7 @@ ssize_t reset(struct device *dev, struct device_attribute *attr, const char *buf
 }
 
 // This is the sysfs attribute that will be created.
-static DEVICE_ATTR(sysfs_att, S_IWUSR | S_IRUGO , display, modify);
+static DEVICE_ATTR(sysfs_att, S_IWUSR | S_IRUGO , display, reset);
 
 
 
