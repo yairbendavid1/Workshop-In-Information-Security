@@ -20,7 +20,10 @@ int main(int argc, char *argv[]) {
         unsigned int accepted_packets_cnt, droped_packets_cnt; // Variables to hold the statistics.
         char statistics[UINT_SIZE * 2]; // Buffer to read the statistics from the sysfs file. (2 unsigned ints)
         
-        fread(statistics, UINT_SIZE * 2, 1, fd); // Read the statistics from the sysfs file to the buffer.
+        if (fread(statistics, UINT_SIZE * 2, 1, fd) != 1){
+            printf("Error: Can't read from sysfs_device file\n");
+            return EXIT_FAILURE; // If the statistics couldn't be read, return failure.
+        }; // Read the statistics from the sysfs file to the buffer.
         memcpy((char *)&accepted_packets_cnt, statistics, UINT_SIZE); // Copy the first unsigned int from the buffer to the accept_cnt variable.
         memcpy((char *)&droped_packets_cnt, statistics + UINT_SIZE, UINT_SIZE); // Copy the second unsigned int from the buffer to the drop_cnt variable.
 

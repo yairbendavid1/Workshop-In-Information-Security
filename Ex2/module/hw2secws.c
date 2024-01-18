@@ -11,6 +11,7 @@
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Yair");
 
+#define UINT_SIZE sizeof(unsigned int)
 
 // sysfs informatiom pointers and variables 
 static struct file_operations fops = {
@@ -52,7 +53,10 @@ static void __exit my_module_exit_function(void);  // This function is called wh
 // The format of the statistics is: "accepted_packets_cnt,droped_packets_cnt\n"
 ssize_t display(struct device *dev, struct device_attribute *attr, char *buf)	//sysfs show implementation
 {
-	return scnprintf(buf, PAGE_SIZE, "%u,%u\n", accepted_packets_cnt, droped_packets_cnt);
+	memcpy(buf, (char *)&accepted_packets_cnt, UINT_SIZE);
+    memcpy(buf + UINT_SIZE, (char *)&droped_packets_cnt, UINT_SIZE);
+
+    return UINT_SIZE << 1; 
 }
 
 
