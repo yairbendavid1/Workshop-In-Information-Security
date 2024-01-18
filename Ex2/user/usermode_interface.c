@@ -36,7 +36,7 @@ int main(int argc, char *argv[]) {
         return EXIT_SUCCESS;
         
     }
-    elif (argc == 2) { // If one argument is given, we will reset the statistics in the sysfs file.
+    if (argc == 2) { // If one argument is given, we will reset the statistics in the sysfs file.
         if (argv[1][0] != 'r') { // If the argument is not 'r', return failure.
             printf("Error: Invalid argument\n");
             return EXIT_FAILURE;
@@ -50,7 +50,7 @@ int main(int argc, char *argv[]) {
         // The format of writing to the sysfs file is: "r".
         // We will write 'r' to the sysfs file to reset the statistics.
         char send_reset[] = "r";
-        if (fwrite(send_reset, 1, 1, fdי)) { // Write '*' to the sysfs file.
+        if (fwrite(send_reset, 1, 1, fd)) { // Write '*' to the sysfs file.
             printf("Error: Can't write into sysfs_device file\n");
             return EXIT_FAILURE; // If the '*' couldn't be written, return failure.
         }
