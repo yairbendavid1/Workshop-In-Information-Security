@@ -80,11 +80,11 @@ static int initiate_hook_point(struct nf_hook_ops *my_op, enum nf_inet_hooks hoo
 // and drop all packets that are hooked in the forward point.
 static unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook_state *state) {
    if(state->hook == NF_INET_LOCAL_IN || state->hook == NF_INET_LOCAL_OUT) {
-       printk(KERN_INFO "Packet Accepted\n");
+       printk(KERN_INFO "*** Packet Accepted ***\n");
        return NF_ACCEPT;
    }
    else if(state->hook == NF_INET_FORWARD) {
-       printk(KERN_INFO "Packet Dropped\n");
+       printk(KERN_INFO "*** Packet Dropped ***\n");
        return NF_DROP;
    }
    else {
