@@ -3,7 +3,7 @@
 #include <string.h>
 
 
-#define PATH "/sys/class/Sysfs_class/sysfs_class_packet_statistics/sysfs_att" // Path to the sysfs file.
+#define PATH "/sys/class/Sysfs_class/Sysfs_class_packet_statistics/sysfs_att" // Path to the sysfs file.
 #define UINT_SIZE sizeof(unsigned int) // Size of unsigned int in bytes so we can read it from the sysfs file (2 unsigned ints in the file).
 
 

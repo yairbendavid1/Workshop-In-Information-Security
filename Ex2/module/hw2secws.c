@@ -105,7 +105,7 @@ static int __init my_module_init_function(void) {
       
 	
 	//create sysfs device 
-	sysfs_device = device_create(sysfs_class, NULL, MKDEV(major_number, 0), NULL, "sysfs_class" "_" "packet_statistics");	
+	sysfs_device = device_create(sysfs_class, NULL, MKDEV(major_number, 0), NULL, "Sysfs_class" "_" "packet_statistics");	
 	if (IS_ERR(sysfs_device)) { goto sysfs_device_creation_failed; } //if an error occured, move to the error section0
 	
 	
