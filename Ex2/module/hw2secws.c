@@ -12,7 +12,6 @@ MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Yair");
 
 
-
 // sysfs informatiom pointers and variables 
 static struct file_operations fops = {
 	.owner = THIS_MODULE
