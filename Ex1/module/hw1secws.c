@@ -13,10 +13,11 @@ MODULE_AUTHOR("Yair");
 // We need 3 hook points, one for each of the following: input, forward, output.
 // We will accept all packets that are hooked in the input and output points, 
 // and drop all packets that are hooked in the forward point.
+// start by allocating 3 structs to hold hook operations. 
 
-static struct nf_hook_ops input_hook_point;         // input hook point
-static struct nf_hook_ops forward_hook_point;        // forward hook point
-static struct nf_hook_ops output_hook_point;     // output hook point
+static struct nf_hook_ops input_hook_point_op;         // input hook point op
+static struct nf_hook_ops forward_hook_point_op;        // forward hook point op
+static struct nf_hook_ops output_hook_point_op;     // output hook point op
 
 
 /* -----------  functions declarations -------------*/
@@ -32,15 +33,15 @@ static void __exit my_module_exit_function(void);  // This function is called wh
 
 static int __init my_module_init_function(void) {
 	// on init, we want to register the hooks at the input, forward, output points.
-    if(initiate_hook_point(&init_net, &input_hook_point) != 0) { // register the hook at the input point and check for errors
+    if(initiate_hook_point(&input_hook_point_op, NF_INET_LOCAL_IN) != 0) { // register the hook at the input point and check for errors
         printk(KERN_INFO "Error on setting netfilter INPUT hook point\n");
         goto failed_input;
     }
-    if(initiate_hook_point(&init_net, &forward_hook_point) != 0) { // register the hook at the forward point and check for errors
+    if(initiate_hook_point(&forward_hook_point_op, NF_INET_FORWARD) != 0) { // register the hook at the forward point and check for errors
         printk(KERN_INFO "Error on setting netfilter FORWARD hook point\n");
         goto failed_forward;
     }
-    if(initiate_hook_point(&init_net, &output_hook_point) != 0) { // register the hook at the output point and check for errors
+    if(initiate_hook_point(&output_hook_point_op, NF_INET_LOCAL_IN) != 0) { // register the hook at the output point and check for errors
         printk(KERN_INFO "Error on setting netfilter OUTPUT hook point\n");
         goto failed_output;
     }
@@ -49,11 +50,11 @@ static int __init my_module_init_function(void) {
     //if we failed to register a hook, we need to unregister all the hooks that were registered before.
     //we will do it in reverse order, so that we will unregister the hooks that were registered first, last.
     failed_output:
-        nf_unregister_net_hook(&init_net, &output_hook_point);
+        nf_unregister_net_hook(&init_net, &output_hook_point_op);
     failed_forward:
-        nf_unregister_net_hook(&init_net, &forward_hook_point);
+        nf_unregister_net_hook(&init_net, &forward_hook_point_op);
     failed_input:
-        nf_unregister_net_hook(&init_net, &input_hook_point);
+        nf_unregister_net_hook(&init_net, &input_hook_point_op);
     return -1; // return -1 to indicate that the module failed to load.    
     
 }
@@ -99,9 +100,9 @@ static unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct 
 // This function is called when the module is unloaded.
 // It unregisters all the hooks that were registered before.
 static void __exit my_module_exit_function(void) {
-	nf_unregister_net_hook(&init_net, &input_hook_point);
-    nf_unregister_net_hook(&init_net, &forward_hook_point);
-    nf_unregister_net_hook(&init_net, &output_hook_point);
+	nf_unregister_net_hook(&init_net, &input_hook_point_op);
+    nf_unregister_net_hook(&init_net, &forward_hook_point_op);
+    nf_unregister_net_hook(&init_net, &output_hook_point_op);
 }
 
 
