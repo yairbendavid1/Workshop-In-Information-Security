@@ -60,6 +60,7 @@ ssize_t display(struct device *dev, struct device_attribute *attr, char *buf)	//
 // The modify function is called when the sysfs file is written.
 // It will reset the statistics of the packets that were accepted and dropped.
 // if the first char in the buffer is 'r', the statistics will be reset.
+// This way, we can reset the statistics by writing 'r' to the sysfs file from the user space. 
 ssize_t reset(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)	//sysfs store implementation
 {
 	char temp;
@@ -104,7 +105,7 @@ static int __init my_module_init_function(void) {
       
 	
 	//create sysfs device 
-	sysfs_device = device_create(sysfs_class, NULL, MKDEV(major_number, 0), NULL, "sysfs_class" "_" "sysfs_Device");	
+	sysfs_device = device_create(sysfs_class, NULL, MKDEV(major_number, 0), NULL, "sysfs_class" "_" "packet_statistics");	
 	if (IS_ERR(sysfs_device)) { goto sysfs_device_creation_failed; } //if an error occured, move to the error section0
 	
 	
