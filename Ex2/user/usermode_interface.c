@@ -45,7 +45,6 @@ int main(int argc, char *argv[]) {
             printf("Error: Can't write into sysfs_device file\n");
             return EXIT_FAILURE; // If the statistics couldn't be reset, return failure.
         }
-        fclose(fd); // Close the sysfs file and return success.
         return EXIT_SUCCESS;
         
     }
