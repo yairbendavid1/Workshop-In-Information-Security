@@ -66,10 +66,9 @@ ssize_t display(struct device *dev, struct device_attribute *attr, char *buf)	//
 // This way, we can reset the statistics by writing 'r' to the sysfs file from the user space. 
 ssize_t reset(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)	//sysfs store implementation
 {
-	char temp;
-    if (sscanf(buf, "%c", &temp) == 'r')
-        accepted_packets_cnt = 0;
-        droped_packets_cnt = 0;
+	
+    accepted_packets_cnt = 0;
+    droped_packets_cnt = 0;
 	return count;	
 }
 
