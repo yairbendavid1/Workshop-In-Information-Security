@@ -162,14 +162,17 @@ static int initiate_hook_point(struct nf_hook_ops *my_op, enum nf_inet_hooks hoo
 static unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook_state *state) {
    if(state->hook == NF_INET_LOCAL_IN || state->hook == NF_INET_LOCAL_OUT) {
        printk(KERN_INFO "*** Packet Accepted ***\n");
+       accepted_packets_cnt++;
        return NF_ACCEPT;
    }
    else if(state->hook == NF_INET_FORWARD) {
        printk(KERN_INFO "*** Packet Dropped ***\n");
+       droped_packets_cnt++;
        return NF_DROP;
    }
    else {
        printk(KERN_INFO "The packet is not hooked in \n");
+       accepted_packets_cnt++;
        return NF_ACCEPT;
    }
 }
