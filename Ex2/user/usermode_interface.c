@@ -41,7 +41,7 @@ int main(int argc, char *argv[]) {
             printf("Error: Invalid argument\n");
             return EXIT_FAILURE;
         }
-        if (system("echo \"rrrr\" | sudo tee /sys/class/Sysfs_class/Sysfs_class_packet_statistics/sysfs_att") != 0) { // Reset the statistics in the sysfs file.
+        if (system("echo \"Reset Statistics\" | sudo tee /sys/class/Sysfs_class/Sysfs_class_packet_statistics/sysfs_att") != 0) { // Reset the statistics in the sysfs file.
             printf("Error: Can't write into sysfs_device file\n");
             return EXIT_FAILURE; // If the statistics couldn't be reset, return failure.
         }
