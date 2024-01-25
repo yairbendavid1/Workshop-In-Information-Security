@@ -89,8 +89,8 @@ static int __init my_module_init_function(void){
     */
 
     // Creating char device fot the log, named "fw_log".
-    log_major = register_chrdev(0, "fw_log", &log_ops);
-    if (log_major < 0)
+    log_major_number = register_chrdev(0, "fw_log", &log_ops);
+    if (log_major_number < 0)
     {
         goto log_char_device_creation_failed;
     }
@@ -138,7 +138,7 @@ static int __init my_module_init_function(void){
 
     if (initiate_hook_point(&forward_hook_point_op, NF_INET_FORWARD) != 0) {
         printk(KERN_INFO "Error on setting netfilter FORWARD hook point\n");
-        goto Registeration_failed;
+        goto registeration_failed;
     }
 
     // If we got here, we successfully created the sysfs class, the log device, the rules device and registered the hook point. 
@@ -146,7 +146,7 @@ static int __init my_module_init_function(void){
 
     
 // Error section: undo all the actions that were done before the error occured (in reverse order), then return -1 to indicate that the module failed to load.
-Registeration_failed
+registeration_failed:
     device_remove_file(rules_dev, (const struct device_attribute *)&dev_attr_rules.attr);
 rules_file_creation_failed
     device_destroy(sysfs_class, MKDEV(rules_major, 0));
