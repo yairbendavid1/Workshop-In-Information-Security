@@ -163,3 +163,14 @@ log_char_device_creation_failed:
 sysfs_class_creation_failed:
     return -1;
 }
+
+static int __exit my_module_exit_function(void){
+    nf_unregister_net_hook(&init_net, &nf_forward_op);
+    device_remove_file(log_device, (const struct device_attribute *)&dev_attr_reset.attr);
+    device_destroy(sysfs_class, MKDEV(log_major_number, 0));
+    unregister_chrdev(log_major_number, MAJOR_NAME_LOG);
+    device_remove_file(rules_device, (const struct device_attribute *)&dev_attr_rules.attr);
+    device_destroy(sysfs_class, MKDEV(rules_major_number, 0));
+    unregister_chrdev(rules_major_number, MAJOR_NAME_RULE);
+}
+}
