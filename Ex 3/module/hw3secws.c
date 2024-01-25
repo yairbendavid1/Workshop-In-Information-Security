@@ -149,15 +149,15 @@ static int __init my_module_init_function(void){
 registeration_failed:
     device_remove_file(rules_dev, (const struct device_attribute *)&dev_attr_rules.attr);
 rules_file_creation_failed
-    device_destroy(sysfs_class, MKDEV(rules_major, 0));
+    device_destroy(sysfs_class, MKDEV(rules_major_number, 0));
 rules_device_creation_failed:
-    unregister_chrdev(rules_major, "rules");
+    unregister_chrdev(rules_major_number, "rules");
 rules_char_device_creation_failed:
     device_remove_file(log_device, (const struct device_attribute *)&dev_attr_reset.attr);
 log_file_creation_failed:
-    device_destroy(sysfs_class, MKDEV(log_major, 0));
+    device_destroy(sysfs_class, MKDEV(log_major_number, 0));
 log_device_creation_failed:
-    unregister_chrdev(log_major, "fw_log");
+    unregister_chrdev(log_major_number, "fw_log");
 log_char_device_creation_failed:
     class_destroy(sysfs_class);
 sysfs_class_creation_failed:
