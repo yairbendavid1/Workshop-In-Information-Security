@@ -23,14 +23,14 @@ static void create_buff_from_rule(const rule_t *rule, char *buf){
     }
 
 
-static void copy_from_buff_and_increase(const char **buf_ptr, void *var, size_t n){
+static void copy_from_buff_and_increase(char **buf_ptr, const void *var, size_t n){
     memcpy(var, *buf_ptr, n);
     *buf_ptr += n;
 }
 
 
 // This function converts a buffer that was sent from the kernel module to a rule struct.
-static void create_rule_from_buff(char *buf, const rule_t *rule){
+static void create_rule_from_buff(const rule_t *rule, char *buf){
     copy_from_buff_and_increase(&buf, rule->rule_name, 20);
     copy_from_buff_and_increase(&buf, &rule->direction, sizeof(rule->direction));
     copy_from_buff_and_increase(&buf, &rule->src_ip, sizeof(rule->src_ip));
@@ -249,5 +249,10 @@ static int load_rules(const char *rule_db_file_path){
         lines_read++;
         }
     fclose(fp);
+    return 0;
+}
+
+int main(){
+    // load_rules("rules.txt");
     return 0;
 }
