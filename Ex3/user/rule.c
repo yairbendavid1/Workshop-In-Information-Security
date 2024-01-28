@@ -1,5 +1,5 @@
 #include "rule.h"
-
+#include <math.h>
 
 void copy_to_buff_and_increase(char **buf_ptr, const void *var, size_t n){
     memcpy(*buf_ptr, var, n);
@@ -47,7 +47,7 @@ static void create_rule_from_buff(const rule_t *rule, char *buf){
 
 // This function converts a string (readen from a file) to a rule struct.
 // The string is in the following format:
-// <rule_name> <direction> <src_ip> <dst_ip> <src_port> <dst_port> <protocol> <ack> <action>
+// <rule_name> <direction> <src_ip> <dst_ip>  <protocol> <src_port> <dst_port> <ack> <action>
 // returns 1 if succeed, 0 if failed.
 static int convert_string_to_rule(char *str, rule_t *rule){
     // Since we know the length of each field and the format of the string, we can use sscanf to read the string.
@@ -64,7 +64,7 @@ static int convert_string_to_rule(char *str, rule_t *rule){
     // We want to secure that every function is succeed, so we will use a flag to indicate if a function failed.
     int direction_flag = 0, src_ip_flag = 0, dst_ip_flag = 0, src_port_flag = 0, dst_port_flag = 0, protocol_flag = 0, ack_flag = 0, action_flag = 0;
     // Now we can read the string.
-    if (sscanf(str, "%s %s %s %s %s %s %s %s %s", rule->rule_name, direction, src_ip, dst_ip, src_port, dst_port, protocol, ack, action) != 9){
+    if (sscanf(str, "%s %s %s %s %s %s %s %s %s", rule->rule_name, direction, src_ip, dst_ip, protocol, src_port, dst_port, ack, action) != 9){
         printf("Error reading the string\n");
         return 0;
     }
@@ -73,9 +73,9 @@ static int convert_string_to_rule(char *str, rule_t *rule){
     direction_flag = convert_string_to_direction(direction, &rule->direction);
     src_ip_flag = convert_string_to_ip_and_mask(src_ip, &rule->src_ip, &rule->src_prefix_mask, &rule->src_prefix_size);
     dst_ip_flag = convert_string_to_ip_and_mask(dst_ip, &rule->dst_ip, &rule->dst_prefix_mask, &rule->dst_prefix_size);
+    protocol_flag = convert_string_to_protocol(protocol, &rule->protocol);
     src_port_flag = convert_string_to_port(src_port, &rule->src_port);
     dst_port_flag = convert_string_to_port(dst_port, &rule->dst_port);
-    protocol_flag = convert_string_to_protocol(protocol, &rule->protocol);
     ack_flag = convert_string_to_ack(ack, &rule->ack);
     action_flag = convert_string_to_action(action, &rule->action);
 
@@ -104,6 +104,7 @@ static int convert_string_to_direction(char *str, direction_t *direction){
         return 1;
     }
     else{
+        printf("Error in direction\n");
         return 0;
     }
 }
@@ -113,7 +114,7 @@ static int convert_string_to_direction(char *str, direction_t *direction){
 // IP string format: xxx.xxx.xxx.xxx
 // str_prefix: a string that contains the prefix size (0-32)
 // returns 1 if succeed, 0 if failed.
-static int convert_string_to_ip_and_mask(char *str, uint32_t *ip, uint32_t *mask, uint8_t *prefix_size){
+static int convert_string_to_ip_and_mask(char* str, uint32_t *ip, uint32_t *mask, uint8_t *prefix_size){
     // First we need to check if the string is "any" or IP/mask.
     if (strcmp(str, "any") == 0){
         *ip = 0;
@@ -123,20 +124,21 @@ static int convert_string_to_ip_and_mask(char *str, uint32_t *ip, uint32_t *mask
     }
     // If the string is not "any", we need to extract the IP and the mask.
     // We know the format of the string, so we can use sscanf to read the string.
-    char ip_str[16]; // xxx.xxx.xxx.xxx
-    char str_prefix[3]; // 0-32
-    sscanf(str, "%s/%s", ip_str, str_prefix);
-
+    char str_ip[20]; // xxx.xxx.xxx.xxx
+    int seg1, seg2, seg3, seg4, prefix; // 0-32
+    sscanf(str, "%u.%u.%u.%u/%u", &seg1, &seg2, &seg3 , &seg4, &prefix);
+    sprintf(str_ip, "%u.%u.%u.%u", seg1, seg2, seg3, seg4);
     // Now we need to convert the IP string to IP (network byte order).
     // we can use inet_aton() to convert the IP string to IP (network byte order)..
-    if (inet_aton(ip_str, ip) == 0){
-        printf("Error converting IP string to IP\n");
+    if (inet_aton(str_ip, ip) == 0){
+
+        printf("Error converting IP string %s to IP\n", str_ip);
         return 0;
     }
-    uint8_t size = atoi(str_prefix);
-    *prefix_size = size;
+    *prefix_size = (uint8_t)prefix;
     // ..and then we can create the mask from the prefix size.
-    *mask = (uint32_t)(pow(2, size) - 1) << (32 - size); // host byte order mask
+    *mask = ((uint32_t)(-1)) << (32 - prefix); // host byte order mask
+    printf("IP is: %s, mask is: %u, size is: %u\n", str_ip, *mask, *prefix_size);
     return 1;
 
 }
@@ -145,44 +147,43 @@ static int convert_string_to_ip_and_mask(char *str, uint32_t *ip, uint32_t *mask
 // This function converts a port string to a port number.
 // returns 1 if succeed, 0 if failed.
 static int convert_string_to_port(char *str, uint16_t *port){
+
     if (strcmp(str, "any") == 0){
         *port = (uint16_t)0;
         return 1;
     }
-    else if (strcmp(str, ">1023") == 0){
-        *port = (uint16_t)1024;
-        return 1;
+    if (strcmp(str, ">1023") == 0){
+      *port = (uint16_t)1024;
+      return 1;
     }
-    else{
-        uint16_t p = atoi(str);
-        if (p > 0 && p <= 1023){
-            *port = p;
-            return 1;
-        }
-        else{
-            printf("Error converting port string to port number: not a valid port\n");
-            return 0;
-        }
+    else {
+      int p = atoi(str);
+      if (p > 1023){
+        printf("Error on port: port is too big\n");
+        return 0;
+      }
+      *port = (uint16_t)p;
+      return 1;
     }
 }
 
 
 // This function converts a protocol string to a prot_t enum.
 static int convert_string_to_protocol(char *str, prot_t *protocol){
-    if (strcmp(str, "icmp") == 0){
+    if (strcmp(str, "any") == 0){
+        *protocol = PROT_ANY;
+        return 1;
+    }
+    if (strcmp(str, "ICMP") == 0){
         *protocol = PROT_ICMP;
         return 1;
     }
-    else if (strcmp(str, "tcp") == 0){
+    if (strcmp(str, "TCP") == 0){
         *protocol = PROT_TCP;
         return 1;
     }
-    else if (strcmp(str, "udp") == 0){
+    if (strcmp(str, "UDP") == 0){
         *protocol = PROT_UDP;
-        return 1;
-    }
-    else if (strcmp(str, "any") == 0){
-        *protocol = PROT_ANY;
         return 1;
     }
     else{
@@ -248,11 +249,12 @@ static int load_rules(const char *rule_db_file_path){
         }
         lines_read++;
         }
+    printf("%d\n ",lines_read);
     fclose(fp);
     return 0;
 }
 
-int main(){
-    // load_rules("rules.txt");
+int main(int argc, char *argv[]){
+    printf("%d\n", load_rules(argv[1]));
     return 0;
 }
