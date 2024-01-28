@@ -138,7 +138,6 @@ static int convert_string_to_ip_and_mask(char* str, uint32_t *ip, uint32_t *mask
     *prefix_size = (uint8_t)prefix;
     // ..and then we can create the mask from the prefix size.
     *mask = ((uint32_t)(-1)) << (32 - prefix); // host byte order mask
-    printf("IP is: %s, mask is: %u, size is: %u\n", str_ip, *mask, *prefix_size);
     return 1;
 
 }
@@ -247,6 +246,7 @@ static int load_rules(const char *rule_db_file_path){
             printf("Error converting string to rule\n");
             return -1;
         }
+        print_rule(rules[lines_read]);
         lines_read++;
         }
     printf("%d\n ",lines_read);
@@ -254,6 +254,25 @@ static int load_rules(const char *rule_db_file_path){
     return 0;
 }
 
+
+static void print_rule(rule_t rule){
+    rule_t *rule_ptr = &rule;
+    printf("rule name: %s\n", rule_ptr->rule_name);
+    printf("direction: %d\n", rule_ptr->direction);
+    printf("src ip: %u\n", rule_ptr->src_ip);
+    printf("src prefix mask: %u\n", rule_ptr->src_prefix_mask);
+    printf("src prefix size: %u\n", rule_ptr->src_prefix_size);
+    printf("dst ip: %u\n", rule_ptr->dst_ip);
+    printf("dst prefix mask: %u\n", rule_ptr->dst_prefix_mask);
+    printf("dst prefix size: %u\n", rule_ptr->dst_prefix_size);
+    printf("src port: %u\n", rule_ptr->src_port);
+    printf("dst port: %u\n", rule_ptr->dst_port);
+    printf("protocol: %u\n", rule_ptr->protocol);
+    printf("ack: %u\n", rule_ptr->ack);
+    printf("action: %u\n", rule_ptr->action);
+    printf("\n");
+
+}
 int main(int argc, char *argv[]){
     printf("%d\n", load_rules(argv[1]));
     return 0;

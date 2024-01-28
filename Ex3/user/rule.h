@@ -77,6 +77,6 @@ static int convert_string_to_ack(char *str, ack_t *ack);
 static int convert_string_to_action(char *str, uint8_t *action);
 
 
-
+static void print_rule(rule_t rule);
 static int load_rules(const char *rule_db_file_path);
 #endif
