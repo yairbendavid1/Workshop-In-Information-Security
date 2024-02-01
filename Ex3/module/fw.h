@@ -44,7 +44,7 @@ typedef enum {
 // auxiliary values, for your convenience
 #define IP_VERSION		(4)
 #define PORT_ANY		(0)
-#define PORT_ABOVE_1023	(1023)
+#define PORT_ABOVE_1023	(1024)
 #define MAX_RULES		(50)
 
 // device minor numbers, for your convenience
@@ -82,6 +82,14 @@ typedef struct {
 	ack_t	ack; 				// values from: ack_t
 	__u8	action;   			// valid values: NF_ACCEPT, NF_DROP
 } rule_t;
+
+// struct for the current rule table assigned to the kernel module
+typedef struct {
+	__8 valid; // is the table valid
+	__u8 amount; // the amount of rules in the table
+	rule_t rule_table[MAX_RULES]; // the rule table
+} rule_table_t;
+
 
 // logging
 typedef struct {

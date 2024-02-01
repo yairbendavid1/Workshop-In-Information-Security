@@ -11,7 +11,7 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 
-
+#define RULE_SYSFS_PATH "/sys/class/fw/rules/rules"
 
 #define MAX_RULES 50
 
