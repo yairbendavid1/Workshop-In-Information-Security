@@ -44,13 +44,6 @@ static int initiate_hook_point(struct nf_hook_ops *my_op, enum nf_inet_hooks hoo
 }
 
 
-// This function is called when a packet is received at one of the hook points.
-static unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook_state *state) {
-   return NF_ACCEPT;
-}
-
-
-
 // With the log char device, we want to use our own implementation of the open and read functions. 
 static struct file_operations log_ops = {.owner = THIS_MODULE, .open = open_log, .read = read_log};
 

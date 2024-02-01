@@ -6,10 +6,32 @@
 static rule_table_t current_rule_set = {.valid = 0}; // The current rule that we will use for filtering
 
 
+// Since we want to use the rule table in the filter module, we will define getters for the rule table.
+
+// This function will return the current rule table.
+rule_table_t *get_rules(void){
+    return &current_rule_set;
+}
+
+
+// This function will return the current rule table amount.
+__u8 get_rules_amount(void){
+    return current_rule_set.amount;
+}
+
+
+// This function will return if the current rule table is valid.
+int is_valid_table(void){
+    return current_rule_set.valid;
+}
+
+
+
+
 // This function will be the fw_rules "show" function.
 // On show rules command, the user will read from the rules device all the rules buffer, and this function will be called.
 // This function will convert all the rules to a buffer and return it to the user.
-static ssize_t show_rules(struct device *dev, struct device_attribute *attr, char *buf);{
+ssize_t show_rules(struct device *dev, struct device_attribute *attr, char *buf);{
     // If the rule set is not valid, we will return 0
     if (current_rule_set.valid == 0)
     {
@@ -40,8 +62,9 @@ static ssize_t show_rules(struct device *dev, struct device_attribute *attr, cha
 
 // This function will be the fw_rules "store" function.
 // On load rules command, the user will write to the rules device all the rules buffer, and this function will be called.
-// This function will convert all the buffer to rules and store all the rules in a rule_table we will use later for the firewall filtering. 
-static ssize_t store_rules(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+// This function will convert all the buffer to rules and store all the rules in a rule_table we will use later for the firewall filtering.
+// on error, we will keep the old rule table.
+ssize_t store_rules(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
 {
     rule_table_t new_rule_set = {.valid = 0}; // The new rule that we will use for filtering
     __u8 size_of_kernel_buff = 20 + sizeof(direction_t) + sizeof(__be32) + sizeof(__be32) + sizeof(__u8) +sizeof(__be32) + sizeof(__be32) + sizeof(__u8) + sizeof(__be16) + sizeof(__be16) + sizeof(__u8) + sizeof(ack_t) + sizeof(__u8);
@@ -69,6 +92,10 @@ static ssize_t store_rules(struct device *dev, struct device_attribute *attr, co
         rule_t *rule = &new_rule_set.rule_table[i];
         create_rule_from_buff(rule, buf); // Convert the buffer to a rule
         buf += size_of_kernel_buff; // Increase the buffer address to the next rule
+        if (check_rule_format(rule) == -1) // Check if the rule is valid
+        {
+            return count;
+        }
     }
     new_rule_set.valid = 1; // Mark the new rule set as valid
 
@@ -98,7 +125,7 @@ static void print_rule(rule_t rule){
 }
 
 
-static void copy_from_buff_and_increase(char **buf_ptr, const void *var, size_t n){
+void copy_from_buff_and_increase(char **buf_ptr, const void *var, size_t n){
     memcpy(var, *buf_ptr, n);
     *buf_ptr += n;
 }
@@ -113,7 +140,7 @@ void copy_to_buff_and_increase(char **buf_ptr, const void *var, size_t n){
 // This function converts a buffer that was sent from the kernel module to a rule struct.
 // The format of the buffer is:
 // <rule_name> <direction> <src_ip> <src_prefix_mask> <src_prefix_size> <dst_ip> <dst_prefix_mask> <dst_prefix_size> <src_port> <dst_port> <protocol> <ack> <action>
-static void create_rule_from_buff(const rule_t *rule, char *buf){
+void create_rule_from_buff(const rule_t *rule, char *buf){
     copy_from_buff_and_increase(&buf, rule->rule_name, 20); // rule name
     copy_from_buff_and_increase(&buf, &rule->direction, sizeof(rule->direction)); // direction
     copy_from_buff_and_increase(&buf, &rule->src_ip, sizeof(rule->src_ip)); // src ip
@@ -134,7 +161,7 @@ static void create_rule_from_buff(const rule_t *rule, char *buf){
 // This function converts a rule struct to a buffer that can be sent to the kernel module.
 // The format of the buffer is:
 // <rule_name> <direction> <src_ip> <src_prefix_mask> <src_prefix_size> <dst_ip> <dst_prefix_mask> <dst_prefix_size> <src_port> <dst_port> <protocol> <ack> <action>
-static void create_buff_from_rule(const rule_t *rule, char *buf){
+void create_buff_from_rule(const rule_t *rule, char *buf){
     copy_to_buff_and_increase(&buf, rule->rule_name, 20); // rule name
     copy_to_buff_and_increase(&buf, &rule->direction, sizeof(rule->direction)); // direction
     copy_to_buff_and_increase(&buf, &rule->src_ip, sizeof(rule->src_ip)); // src ip
@@ -149,3 +176,63 @@ static void create_buff_from_rule(const rule_t *rule, char *buf){
     copy_to_buff_and_increase(&buf, &rule->ack, sizeof(rule->ack)); // ack
     copy_to_buff_and_increase(&buf, &rule->action, sizeof(rule->action)); // action
     }
+
+// This function will check if a rule sent from the user is valid and can be added to the rule table.
+// The function will return 0 if the rule is valid, and -1 if the rule is not valid.
+int check_rule_format(rule_t *rule){
+    // Check if the rule name is valid
+    if (strlen(rule->rule_name) > 20)
+    {
+        return -1;
+    }
+
+    // Check if the direction is valid
+    if (rule->direction != DIRECTION_IN && rule->direction != DIRECTION_OUT && rule->direction != DIRECTION_ANY)
+    {
+        return -1;
+    }
+
+    // Check if the src prefix size is valid
+    if (rule->src_prefix_size > 32)
+    {
+        return -1;
+    }
+
+    // Check if the dst prefix size is valid
+    if (rule->dst_prefix_size > 32)
+    {
+        return -1;
+    }
+
+    // Check if the src port is valid
+    if (rule->src_port > 1024)
+    {
+        return -1;
+    }
+
+    // Check if the dst port is valid
+    if (rule->dst_port > 1024)
+    {
+        return -1;
+    }
+
+    // Check if the protocol is valid
+    if (rule->protocol != PROT_ICMP && rule->protocol != PROT_TCP && rule->protocol != PROT_UDP && rule->protocol != PROT_OTHER && rule->protocol != PROT_ANY)
+    {
+        return -1;
+    }
+
+    // Check if the ack is valid
+    if (rule->ack != ACK_NO && rule->ack != ACK_YES && rule->ack != ACK_ANY)
+    {
+        return -1;
+    }
+
+    // Check if the action is valid
+    if (rule->action != 0 && rule->action != 1)
+    {
+        return -1;
+    }
+
+    return 0;
+}
