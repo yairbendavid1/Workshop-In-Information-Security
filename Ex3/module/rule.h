@@ -10,4 +10,8 @@ void copy_to_buff_and_increase(char **buf, void *var, size_t n);
 void copy_from_buff_and_increase(const char **buf, void *var, size_t n);
 void print_rule(rule_t *rule);
 
+rule_t *get_rule_table(void);
+__u8 get_rules_amount(void);
+int is_active_table(void);
+
 #endif

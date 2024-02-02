@@ -9,8 +9,8 @@ static rule_table_t current_rule_set = {.valid = 0}; // The current rule that we
 // Since we want to use the rule table in the filter module, we will define getters for the rule table.
 
 // This function will return the current rule table.
-rule_table_t *get_rules(void){
-    return &current_rule_set;
+rule_t *get_rule_table(void){
+    return current_rule_set.rule_table;
 }
 
 
