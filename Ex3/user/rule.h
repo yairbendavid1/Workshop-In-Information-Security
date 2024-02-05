@@ -2,70 +2,21 @@
 #define __rule_h
 
 
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <math.h>
-#include <netinet/in.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
+#include "user.h"
+#include "log.h"
+
 
 #define RULE_SYSFS_PATH "/sys/class/fw/rules/rules"
 
-#define MAX_RULES 50
 
-
-typedef enum
-{
-    ACK_NO = 0x01,
-    ACK_YES = 0x02,
-    ACK_ANY = ACK_NO | ACK_YES,
-} ack_t;
-
-typedef enum
-{
-    DIRECTION_IN = 0x01,
-    DIRECTION_OUT = 0x02,
-    DIRECTION_ANY = DIRECTION_IN | DIRECTION_OUT
-} direction_t;
-
-// the protocols we will work with
-typedef enum {
-	PROT_ICMP	= 1,
-	PROT_TCP	= 6,
-	PROT_UDP	= 17,
-	PROT_OTHER 	= 255,
-	PROT_ANY	= 143,
-} prot_t;
-
-
-
-// rule base
-typedef struct {
-	char rule_name[20];			// names will be no longer than 20 chars
-	direction_t direction;
-	uint32_t	src_ip;
-	uint32_t	src_prefix_mask; 	// e.g., 255.255.255.0 as int in the local endianness
-	uint8_t    src_prefix_size; 	// valid values: 0-32, e.g., /24 for the example above
-								// (the field is redundant - easier to print)
-	uint32_t	dst_ip;
-	uint32_t	dst_prefix_mask; 	// as above
-	uint8_t    dst_prefix_size; 	// as above	
-	uint16_t	src_port; 			// number of port or 0 for any or port 1023 for any port number > 1023  
-	uint16_t	dst_port; 			// number of port or 0 for any or port 1023 for any port number > 1023 
-	prot_t	protocol; 			// values from: prot_t
-	ack_t	ack; 				// values from: ack_t
-	uint8_t	action;   			// valid values: NF_ACCEPT, NF_DROP
-} rule_t;
 
 // functions to convert rule_t to a string we can send to the module and vice versa.
 static void create_buff_from_rule(const rule_t *rule, char *buf);
 static void create_rule_from_buff(const rule_t *rule, char *buf);
 
 // functions to copy from and to buffer and increase the buffet address to match the size writen/read.
-static void copy_to_buff_and_increase(char **buf_ptr, const void *var, size_t n);
-static void copy_from_buff_and_increase(char **buf_ptr, const void *var, size_t n);
+void copy_to_buff_and_increase(char **buf_ptr, const void *var, size_t n);
+void copy_from_buff_and_increase(char **buf_ptr, const void *var, size_t n);
 
 // functions to convert a string to a rule_t and his attributes.
 static int convert_string_to_rule(char *str, rule_t *rule);
@@ -77,16 +28,16 @@ static int convert_string_to_ack(char *str, ack_t *ack);
 static int convert_string_to_action(char *str, uint8_t *action);
 
 // functions to convert a rule_t and his attributes to a string.
-static void convert_rule_to_string(rule_t *rule, char *str);
-static void convert_direction_to_string(direction_t direction, char *str);
-static void convert_ip_and_mask_to_string(uint32_t ip, uint32_t mask, uint8_t prefix_size, char *str);
-static void convert_protocol_to_string(prot_t protocol, char *str);
-static void convert_port_to_string(uint16_t port, char *str);
-static void convert_ack_to_string(ack_t ack, char *str);
-static void convert_action_to_string(uint8_t action, char *str);
+static int convert_rule_to_string(rule_t *rule, char *str);
+static int convert_direction_to_string(direction_t direction, char *str);
+static int convert_ip_and_mask_to_string(uint32_t ip, uint8_t prefix_size, char *str);
+static int convert_protocol_to_string(prot_t protocol, char *str);
+static int convert_port_to_string(uint16_t port, char *str);
+static int convert_ack_to_string(ack_t ack, char *str);
+static int convert_action_to_string(uint8_t action, char *str);
 
 static int check_rule_format(rule_t *rule);
 static void print_rule(rule_t rule);
-static int show_rules();
-static int load_rules(const char *rule_db_file_path);
+int show_rules();
+int load_rules(const char *rule_db_file_path);
 #endif

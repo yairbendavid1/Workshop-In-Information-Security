@@ -1,6 +1,6 @@
+#include "user.h"
+#include "log.h"
 #include "rule.h"
-#include <math.h>
-
 
 
 void copy_to_buff_and_increase(char **buf_ptr, const void *var, size_t n){
@@ -8,6 +8,10 @@ void copy_to_buff_and_increase(char **buf_ptr, const void *var, size_t n){
     *buf_ptr += n;
 }
 
+void copy_from_buff_and_increase(char **buf_ptr, const void *var, size_t n){
+    memcpy(var, *buf_ptr, n);
+    *buf_ptr += n;
+}
 
 // This function converts a rule struct to a buffer that can be sent to the kernel module.
 // The format of the buffer is:
@@ -29,10 +33,7 @@ static void create_buff_from_rule(const rule_t *rule, char *buf){
     }
 
 
-static void copy_from_buff_and_increase(char **buf_ptr, const void *var, size_t n){
-    memcpy(var, *buf_ptr, n);
-    *buf_ptr += n;
-}
+
 
 
 // This function converts a buffer that was sent from the kernel module to a rule struct.
@@ -190,7 +191,9 @@ static int convert_ip_and_mask_to_string(uint32_t ip, uint8_t mask_size, char *s
     
     // we need to convert the IP (network byte order) to IP string.
     // we can use inet_ntoa() to convert the IP (network byte order) to IP string.
-    char *ip_str = inet_ntoa(ip);
+    struct in_addr ip_addr;
+    ip_addr.s_addr = ip;
+    char *ip_str = inet_ntoa(ip_addr);
     if (ip_str == NULL){
         printf("Error converting IP to IP string\n");
         return 0;
@@ -410,7 +413,7 @@ static int convert_action_to_string(uint8_t action, char *str){
 }
 
 
-static int load_rules(const char *rule_db_file_path){
+int load_rules(const char *rule_db_file_path){
     rule_t rules[MAX_RULES];
     FILE *rules_table_fp;
     FILE *sys_fs_fp;
@@ -418,8 +421,8 @@ static int load_rules(const char *rule_db_file_path){
     int size_of_kernel_buff = 20 + sizeof(direction_t) + sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint8_t) + sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint8_t) + sizeof(uint16_t) + sizeof(uint16_t) + sizeof(prot_t) + sizeof(ack_t) + sizeof(uint8_t); 
     char buf_for_kernel[size_of_kernel_buff];
     uint8_t lines_read = 0;
-    fp = fopen(rule_db_file_path, "r");
-    if (fp == NULL){
+    rules_table_fp = fopen(rule_db_file_path, "r");
+    if (rules_table_fp == NULL){
         printf("Error opening file!\n");
         return -1;
     }
@@ -439,7 +442,7 @@ static int load_rules(const char *rule_db_file_path){
     // <rule_name> <direction> <src_ip> <dst_ip>  <protocol> <src_port> <dst_port> <ack> <action>
 
     // First, we need to open the rules device.
-    sys_fs_fp = fopen(RULES_PATH, "wb");
+    sys_fs_fp = fopen(RULE_SYSFS_PATH, "wb");
     if (sys_fs_fp == NULL){ // check if the file was opened successfully
         printf("Error opening rules device\n");
         return -1;
@@ -459,20 +462,20 @@ static int load_rules(const char *rule_db_file_path){
         // Convert the rule struct to a buffer.
         create_buff_from_rule(rules + i, buf_for_kernel);
         // Write the buffer to the rules device.
-        if (fwrite(rule_buf, size_of_kernel_buff, 1, sys_fs_fp) != 1){
+        if (fwrite(buf_for_kernel, size_of_kernel_buff, 1, sys_fs_fp) != 1){
             printf("Error writing to rules device\n");
             return -1;
         }
     }
 
-    fclose(fp);
+    fclose(rules_table_fp);
     fclose(sys_fs_fp);
     return 0;
 }
 
 // This function reads the rules from the kernel module.
 
-static int show_rules(){
+int show_rules(){
     rule_t rules[MAX_RULES];
     FILE *sys_fs_fp;
     int size_of_kernel_buff = 20 + sizeof(direction_t) + sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint8_t) + sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint8_t) + sizeof(uint16_t) + sizeof(uint16_t) + sizeof(prot_t) + sizeof(ack_t) + sizeof(uint8_t); 
@@ -480,7 +483,7 @@ static int show_rules(){
     uint8_t amount_of_rules;
    
     // First, we need to open the rules device.
-    sys_fs_fp = fopen(RULES_PATH, "rb");
+    sys_fs_fp = fopen(RULE_SYSFS_PATH, "rb");
 
     if (sys_fs_fp == NULL){ // check if the file was opened successfully
         printf("Error opening rules device\n");
@@ -492,7 +495,7 @@ static int show_rules(){
     // first, we need to read the amount of rules so we know how many rules to expect.
     // then we will read each rule as a buffer containing only the rule info.
 
-    if (frea(&amount_of_rules, 1, 1, sys_fs_fp) != 1){ // write the amount of rules to the rules device
+    if (fread(&amount_of_rules, 1, 1, sys_fs_fp) != 1){ // write the amount of rules to the rules device
         printf("Error writing to rules device\n");
         return -1;
     }
@@ -537,7 +540,3 @@ static void print_rule(rule_t rule){
 
 }
 
-int main(int argc, char *argv[]){
-    printf("%d\n", load_rules(argv[1]));
-    return 0;
-}

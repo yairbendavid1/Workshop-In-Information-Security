@@ -3,6 +3,14 @@
 
 // This function is called when a packet is received at one of the hook points.
 unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook_state *state) {
+    
+    /*
+             TODO:
+    *    ADD LOG METHADOLGY
+    */
+    log_row_t log_for_packet;
+    
+    
     // First we need to allocate some memory for the fields of the packet that store in the sk_buff.
     // we will use those fields to check if the packet is allowed or not.
     direction_t packet_direction; // the direction of the packet
@@ -12,13 +20,65 @@ unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook
     __be16 packet_dst_port; // the destination port of the packet
     __u8 packet_protocol; // the protocol of the packet
     ack_t packet_ack; // the ack of the packet
+    __8 is_XMAS_Packet; // bit that indicate if the packet is XMAS packet
 
     // Now we will parse the packet and fill the fields with the values from the packet.
     set_direction(skb, &packet_direction, const struct nf_hook_state *state);
     set_src_dst_ip(skb, &packet_src_ip, &packet_dst_ip);
     set_src_dst_port(skb, &packet_src_port, &packet_dst_port);
     set_protocol(skb, &packet_protocol);
-    set_ack(skb, &packet_ack);
+    set_ack_and_xmas(skb, &packet_ack, &is_XMAS_Packet);
+
+    
+    // Loopbacks and packet with other protocols then TCP, UDP and ICMP are accepted withput log
+    
+    // if the packet is a loopback packet we will accept it without log 
+    if (((packet_src_ip & 0xFF000000) == 0x7F000000) || ((packet_dst_ip & 0xFF000000) == 0x7F000000)){
+        return NF_ACCEPT;
+    }
+
+    // if the packet is not TCP, UDP or ICMP we will accept it without log
+     if (packet_protocol == -1){
+        // if packet_protocol is -1 it means the protocol is not TCP, UDP or ICMP and we will accept it
+        return NF_ACCEPT;   
+     }
+
+    // as now, we can fill the time, ip port and protocol fields of the log_row_t struct.
+    // reason, action and count will be filled later.
+    set_time_ip_and_port_for_log(&log_for_packet, &packet_src_ip, &packet_dst_ip, &packet_src_port, &packet_dst_port, &packet_protocol);
+
+
+    // we need to check for XMAS packet
+    if(is_XMAS_Packet){
+        add_log(&log_for_packet, REASON_XMAS_PACKET, NF_DROP);
+        return NF_DROP;
+    }
+
+
+    // If the rule table is not valid, then accept automatically (and log the action).
+    if (is_valid_table() == 0)
+    {
+        add_log(&log_for_packet, REASON_FW_INACTIVE, NF_ACCEPT);
+        return NF_ACCEPT;
+    }
+
+    // now after we cover all the side cases we need to check if there is a rule that match to the packet.
+    // We need to work based on the first rule matched to the packet.
+    // if no rule is matched we need to drop the packet.
+
+    rule_t *rule_table = get_rule_table();
+    for(int ind = 0; ind < get_rules_amount(); ind++){
+        if (check_rule_for_packet(rule_table + ind, &packet_direction, &packet_src_ip, &packet_dst_ip, &packet_protocol, &packet_src_ip, &packet_dst_port, &packet_ack)){
+            // if we found a match we need to log the action and return the action.
+            // when a rule match, the reason of the log will be the rule index.
+            add_log(&log_for_packet, ind, (rule_table + ind).action);
+            return (rule_table + ind).action;
+        }
+    }
+    // if no match found we log the action and return NF_DROP.
+    add_log(&log_for_packet, REASON_NO_MATCH, NF_DROP);
+    return NF_DROP;
+    
 }
 
 
@@ -42,8 +102,8 @@ void set_src_dst_ip(struct sk_buff *skb, __be32 *packet_src_ip, __be32 *packet_d
     // Get IP fields
     struct iphdr *packet_ip_header;
     packet_ip_header = ip_hdr(skb);
-    *packet_src_ip = ntohl(packet_ip_header->saddr);
-    *packet_dst_ip = ntohl(packet_ip_header->daddr);
+    *packet_src_ip = packet_ip_header->saddr;
+    *packet_dst_ip = packet_ip_header->daddr;
 }
 
 
@@ -78,12 +138,17 @@ void set_protocol(struct sk_buff *skb, __u8 *packet_protocol) {
     // Get transport layer protocol field, and declaring headers
     struct iphdr *packet_ip_header;
     packet_ip_header = ip_hdr(skb);
-    *packet_protocol = packet_ip_header->protocol;
+    if (packet_ip_header->protocol != PROT_TCP && packet_ip_header->protocol != PROT_UDP && packet_ip_header->protocol != PROT_ICMP){
+        *packet_protocol = -1; // if the packet is not TCP or UDP or ICMP we want to accept it
+     }
+     *packet_protocol = packet_ip_header->protocol;
+     
 }
 
 
 // This function get a packet and extract the ack field from it and store it in the packet_ack.
-void set_ack(struct sk_buff *skb, ack_t *packet_ack) {
+// Also, it checks if the packet is a XMAS packet and store the result in the is_XMAS_Packet.
+void set_ack_and_xmas(struct sk_buff *skb, ack_t *packet_ack, __8 *is_XMAS_Packet) {
     // Get transport layer protocol field, and declaring headers
     struct tcphdr *packet_tcp_header;
     struct iphdr *packet_ip_header;
@@ -92,6 +157,111 @@ void set_ack(struct sk_buff *skb, ack_t *packet_ack) {
         // Get TCP port fields
         packet_tcp_header = tcp_hdr(skb);
         *packet_ack = packet_tcp_header->ack ? ACK_YES : ACK_NO;
+
+        // Check for Christmas tree packet
+        if (packet_tcp_header->fin && packet_tcp_header->urg && packet_tcp_header->psh)
+        {
+            *is_XMAS_Packet = 1;
+        }
     }
+    *is_XMAS_Packet = 0;
 }
 
+
+// This function get a rule and a packet and check if the rule is valid for the packet.
+// If the rule is valid for the packet it returns 1, otherwise it returns 0.
+int check_rule_for_packet(rule_t *rule, direction_t *packet_direction, __be32 *packet_src_ip, __be32 *packet_dst_ip, __u8 *packet_protocol, __be16 *packet_src_port, __be16 *packet_dst_port, ack_t *packet_ack) {
+    // Check if the direction is the same
+    if (rule->direction != DIRECTION_ANY && rule->direction != *packet_direction)
+    {
+        return 0;
+    }
+
+    // Check if the src ip is the same
+    if (!check_packet_ip(rule->src_ip, rule->src_prefix_mask, rule->src_prefix_size, *packet_src_ip))
+    {
+        return 0;
+    }
+
+    // Check if the dst ip is the same
+    if (!check_packet_ip(rule->dst_ip, rule->dst_prefix_mask, rule->dst_prefix_size, *packet_dst_ip))
+    {
+        return 0;
+    }
+
+
+    // Check if the protocol is the same
+    if (rule->protocol != PROT_ANY && rule->protocol != *packet_protocol)
+    {
+        return 0;
+    }
+
+    // since the protocol is the same we need to check if the packet is ICMP, UDP or TCP
+    // in case of ICMP we don't need to check the ports and the ack - we have a match!
+    // on udp, we need to check the ports - if they match we have a match!
+    // on tcp, we need to check the ports and the ack - if they match we have a match!
+    if (*packet_protocol == PROT_ICMP)
+    { 
+        // if the protocol is ICMP we don't need to check the ports and the ack and we can finish.
+        return 1;
+    }
+    else
+    { 
+        // since the protocol is not ICMP we need to check the ports.
+        if (!check_packet_port(rule->src_port, *packet_src_port))
+        {
+            return 0;
+        }
+        if (!check_packet_port(rule->dst_port, *packet_dst_port))
+        {
+            return 0;
+        }
+        // if we are here it means that the ports are the same.
+        // now we need to check if the protocol is UDP or TCP.
+        if (*packet_protocol == PROT_UDP)
+        {
+            // If the protocol is UDP we don't need to check the ack and we can finish.
+            return 1;
+        }
+        else
+        {
+            // If the protocol is TCP we need to check the ack.
+            if (!check_packet_ack(rule->ack, *packet_ack))
+            {
+                return 0;
+            }
+            else
+            {
+                return 1;
+            }
+        }
+    }
+
+    return 1;
+}
+
+
+// This function check if the ip of the packet is the same as the ip of the rule.
+int check_packet_ip(__be32 rule_ip, __be32 rule_prefix_mask, __u8 rule_prefix_size, __be32 packet_ip) {
+    __be32 rule_ip_network = rule_ip & rule_prefix_mask;
+    __be32 packet_ip_network = packet_ip & rule_prefix_mask;
+    return rule_ip_network == packet_ip_network;
+}
+
+
+// This function check if the port of the packet is the same as the port of the rule.
+int check_packet_port(__be16 rule_port, __be16 packet_port) {
+    if (rule_port == 0)
+    {
+        return 1;
+    }
+    if (rule_port == PORT_ABOVE_1023 && packet_port > 1023)
+    {
+        return 1;
+    }
+    return rule_port == packet_port;
+}
+
+int check_packet_ack(ack_t rule_ack, ack_t packet_ack) {
+    return rule_ack == packet_ack;
+}

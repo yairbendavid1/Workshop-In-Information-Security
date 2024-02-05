@@ -1,5 +1,6 @@
-#include <stdio.h>
-#include <stdlib.h> // Include the stdlib.h header for the EXIT_FAILURE constant
+#include "user.h"
+#include "log.h"
+#include "rule.h"
 
 int main(int argc, char *argv[]) {
     if (argc == 1){
