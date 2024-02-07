@@ -1,5 +1,5 @@
 #include "fw.h"
-#include "filter.h" 
+#include "filter.h"
 #include "rule.h"
 #include "log.h"
 
@@ -20,7 +20,7 @@ typedef struct{
 LIST_HEAD(log_head); // This macro defines and initializes a list_head object named log_head
 static __u32 log_size = 0; // The amount of log entries, will be to tell the user how many logs we have in the log list.
 static __u8 sent_log_size = 0; // A flag to indicate if the log size was written to the user file buffer yet.
-log_node_t current_log_on_read; // This will be used to keep track of the current log on read, so we can continue from the last log on the next read.
+log_node_t *current_log_on_read; // This will be used to keep track of the current log on read, so we can continue from the last log on the next read.
 
 
 // This function will get data from packet and fill the log_row_t struct
@@ -55,7 +55,7 @@ __u8 logcmp(log_row_t *obj1, log_row_t *obj2){
 }
 
 
-// This function is called from the packet handler function every time a packet is dropped or accepted. 
+// This function is called from the packet handler function every time a packet is dropped or accepted.
 // This function will get a log_row_t struct and add it to the log list
 // if the log was logged before, it will increase the count field of the relevant log_row_t struct by 1.
 // if the log was not logged before, it will add it to the log list.
@@ -108,7 +108,7 @@ ssize_t reset_log(struct device *dev, struct device_attribute *attr, const char 
 // 1. sent_log_size - a flag to indicate if the log size was written to the user file buffer yet.
 // 2. current_log_on_read - a flag to indicate the current log on read, so we can continue from the last log on the next read.
 int open_log(struct inode *inode, struct file *filp){
-    // we will set the flags to 0 and 
+    // we will set the flags to 0 and
     sent_log_size = 0;
     current_log_on_read = NULL;
     return 0;
@@ -127,7 +127,7 @@ ssize_t read_log(struct file *filp, char *buf, size_t length, loff_t *offp){
     int log_buff_size = sizeof(unsigned long) + sizeof(unsigned char) + sizeof(unsigned char) + sizeof(__be32) + sizeof(__be32) + sizeof(__be16) + sizeof(__be16) + sizeof(reason_t) + sizeof(unsigned int);
     char my_buf[log_buff_size];
     int count = 0;
-    
+
     // First we need to check if the log size was written to the user file buffer yet.
     // if not,  we will write it to the user file buffer and set the flag to 1.
 
@@ -162,9 +162,9 @@ ssize_t read_log(struct file *filp, char *buf, size_t length, loff_t *offp){
     }
 
     // we will use the list_for_each_entry macro to iterate over the list and convert each log to a buffer
-    list_for_each_entry_from(current_log_on_read, entry, &log_head, klist_log_node){
+    list_for_each_entry_from(current_log_on_read, &log_head, klist_log_node){
         // we will convert the log to a buffer
-        convert_log_to_buff(&entry->log_data, my_buf);
+        convert_log_to_buff(&current_log_on_read->log_data, my_buf);
         // we will check if the buffer size is big enough to write the log to the user file buffer
         if(length < log_buff_size){
             return count;
@@ -185,16 +185,16 @@ ssize_t read_log(struct file *filp, char *buf, size_t length, loff_t *offp){
 // This function will convert a log_row_t struct to a buffer
 // the buffer will be in the following format:
 // timestamp, protocol, action, src_ip, dst_ip, src_port, dst_port, reason, count
-void convert_log_to_buff(log_row_t *log, char *buf){
-    copy_to_buff_and_increase(&log->timestamp, &buf, sizeof(unsigned long));
-    copy_to_buff_and_increase(&log->protocol, &buf, sizeof(unsigned char));
-    copy_to_buff_and_increase(&log->action, &buf, sizeof(unsigned char));
-    copy_to_buff_and_increase(&log->src_ip, &buf, sizeof(__be32));
-    copy_to_buff_and_increase(&log->dst_ip, &buf, sizeof(__be32));
-    copy_to_buff_and_increase(&log->src_port, &buf, sizeof(__be16));
-    copy_to_buff_and_increase(&log->dst_port, &buf, sizeof(__be16));
-    copy_to_buff_and_increase(&log->reason, &buf, sizeof(reason_t));
-    copy_to_buff_and_increase(&log->count, &buf, sizeof(unsigned int));
+void convert_log_to_buff(const log_row_t *log, char *buf){
+    copy_to_buff_and_increase(&buf, &log->timestamp, sizeof(unsigned long));
+    copy_to_buff_and_increase(&buf, &log->protocol, sizeof(unsigned char));
+    copy_to_buff_and_increase(&buf, &log->action, sizeof(unsigned char));
+    copy_to_buff_and_increase(&buf, &log->src_ip, sizeof(__be32));
+    copy_to_buff_and_increase(&buf, &log->dst_ip, sizeof(__be32));
+    copy_to_buff_and_increase(&buf, &log->src_port, sizeof(__be16));
+    copy_to_buff_and_increase(&buf, &log->dst_port, sizeof(__be16));
+    copy_to_buff_and_increase(&buf, &log->reason, sizeof(reason_t));
+    copy_to_buff_and_increase(&buf, &log->count, sizeof(unsigned int));
 }
 
 

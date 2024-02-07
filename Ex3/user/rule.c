@@ -16,7 +16,7 @@ void copy_from_buff_and_increase(char **buf_ptr, const void *var, size_t n){
 // This function converts a rule struct to a buffer that can be sent to the kernel module.
 // The format of the buffer is:
 // <rule_name> <direction> <src_ip> <src_prefix_mask> <src_prefix_size> <dst_ip> <dst_prefix_mask> <dst_prefix_size> <src_port> <dst_port> <protocol> <ack> <action>
-static void create_buff_from_rule(const rule_t *rule, char *buf){
+void create_buff_from_rule(const rule_t *rule, char *buf){
     copy_to_buff_and_increase(&buf, rule->rule_name, 20); // rule name
     copy_to_buff_and_increase(&buf, &rule->direction, sizeof(rule->direction)); // direction
     copy_to_buff_and_increase(&buf, &rule->src_ip, sizeof(rule->src_ip)); // src ip
@@ -39,7 +39,7 @@ static void create_buff_from_rule(const rule_t *rule, char *buf){
 // This function converts a buffer that was sent from the kernel module to a rule struct.
 // The format of the buffer is:
 // <rule_name> <direction> <src_ip> <src_prefix_mask> <src_prefix_size> <dst_ip> <dst_prefix_mask> <dst_prefix_size> <src_port> <dst_port> <protocol> <ack> <action>
-static void create_rule_from_buff(const rule_t *rule, char *buf){
+void create_rule_from_buff(const rule_t *rule, char *buf){
     copy_from_buff_and_increase(&buf, rule->rule_name, 20); // rule name
     copy_from_buff_and_increase(&buf, &rule->direction, sizeof(rule->direction)); // direction
     copy_from_buff_and_increase(&buf, &rule->src_ip, sizeof(rule->src_ip)); // src ip
@@ -60,7 +60,7 @@ static void create_rule_from_buff(const rule_t *rule, char *buf){
 // The string is in the following format:
 // <rule_name> <direction> <src_ip> <dst_ip>  <protocol> <src_port> <dst_port> <ack> <action>
 // returns 1 if succeed, 0 if failed.
-static int convert_string_to_rule(char *str, rule_t *rule){
+int convert_string_to_rule(char *str, rule_t *rule){
     // Since we know the length of each field and the format of the string, we can use sscanf to read the string.
     // First, we need to allocate some strings to save the fields in - note that the strings will not be apply-ready to the rule struct.
     // specificly, name is just a string so we can copy it to the rule struct.
@@ -102,7 +102,7 @@ static int convert_string_to_rule(char *str, rule_t *rule){
 // This function converts a rule struct to a string we can print to the user.
 // The string is in the following format:
 // <rule_name> <direction> <src_ip>/<src_mask_size> <dst_ip>/<dst_mask_size> <protocol> <src_port> <dst_port> <ack> <action>
-static int convert_rule_to_string(rule_t *rule, char *str){
+int convert_rule_to_string(rule_t *rule, char *str){
     // first we will save some flags to indicate if a function failed.
     int direction_flag = 0, src_ip_flag = 0, dst_ip_flag = 0, src_port_flag = 0, dst_port_flag = 0, protocol_flag = 0, ack_flag = 0, action_flag = 0;
     // Now we can convert the rule struct to a string.
@@ -137,7 +137,7 @@ static int convert_rule_to_string(rule_t *rule, char *str){
 
 // This function converts a direction string to a direction_t enum.
 // returns 1 if succeed, 0 if failed.
-static int convert_string_to_direction(char *str, direction_t *direction){
+int convert_string_to_direction(char *str, direction_t *direction){
     if (strcmp(str, "in") == 0){
         *direction = DIRECTION_IN;
         return 1;
@@ -159,7 +159,7 @@ static int convert_string_to_direction(char *str, direction_t *direction){
 
 // This function converts a direction_t enum to a direction string.
 // returns 1 if succeed, 0 if failed.
-static int convert_direction_to_string(direction_t direction, char *str){
+int convert_direction_to_string(direction_t direction, char *str){
     if (direction == DIRECTION_IN){
         strcat(str, "in");
         return 1;
@@ -182,13 +182,13 @@ static int convert_direction_to_string(direction_t direction, char *str){
 // This function converts an IP and a mask (network byte order) to IP/mask string.
 // IP string format: xxx.xxx.xxx.xxx/mask_size
 // returns 1 if succeed, 0 if failed.
-static int convert_ip_and_mask_to_string(uint32_t ip, uint8_t mask_size, char *str){
+int convert_ip_and_mask_to_string(uint32_t ip, uint8_t mask_size, char *str){
     // First we need to check if the IP is "any".
     if (ip == 0){
         strcat(str, "any");
         return 1;
     }
-    
+
     // we need to convert the IP (network byte order) to IP string.
     // we can use inet_ntoa() to convert the IP (network byte order) to IP string.
     struct in_addr ip_addr;
@@ -211,7 +211,7 @@ static int convert_ip_and_mask_to_string(uint32_t ip, uint8_t mask_size, char *s
 // IP string format: xxx.xxx.xxx.xxx
 // str_prefix: a string that contains the prefix size (0-32)
 // returns 1 if succeed, 0 if failed.
-static int convert_string_to_ip_and_mask(char* str, uint32_t *ip, uint32_t *mask, uint8_t *prefix_size){
+int convert_string_to_ip_and_mask(char* str, uint32_t *ip, uint32_t *mask, uint8_t *prefix_size){
     // First we need to check if the string is "any" or IP/mask.
     if (strcmp(str, "any") == 0){
         *ip = 0;
@@ -227,11 +227,12 @@ static int convert_string_to_ip_and_mask(char* str, uint32_t *ip, uint32_t *mask
     sprintf(str_ip, "%u.%u.%u.%u", seg1, seg2, seg3, seg4);
     // Now we need to convert the IP string to IP (network byte order).
     // we can use inet_aton() to convert the IP string to IP (network byte order).
-    if (inet_aton(str_ip, ip) == 0){
-
+    struct in_addr ip_struct;
+    if (inet_aton(str_ip, ip_struct) == 0){
         printf("Error converting IP string %s to IP\n", str_ip);
         return 0;
     }
+    *ip = ip_struct.s_addr;
     *prefix_size = (uint8_t)prefix;
     // ..and then we can create the mask from the prefix size.
     *mask = ((uint32_t)(-1)) << (32 - prefix); // host byte order mask
@@ -242,7 +243,7 @@ static int convert_string_to_ip_and_mask(char* str, uint32_t *ip, uint32_t *mask
 
 // This function converts a protocol to a string.
 // returns 1 if succeed, 0 if failed.
-static int convert_protocol_to_string(prot_t protocol, char *str){
+int convert_protocol_to_string(prot_t protocol, char *str){
     if (protocol == PROT_ICMP){
         strcat(str, "icmp");
         return 1;
@@ -267,7 +268,7 @@ static int convert_protocol_to_string(prot_t protocol, char *str){
 
 
 // This function converts a protocol string to a prot_t enum.
-static int convert_string_to_protocol(char *str, prot_t *protocol){
+int convert_string_to_protocol(char *str, prot_t *protocol){
     if (strcmp(str, "any") == 0){
         *protocol = PROT_ANY;
         return 1;
@@ -293,7 +294,7 @@ static int convert_string_to_protocol(char *str, prot_t *protocol){
 
 // This function converts a port string to a port number.
 // returns 1 if succeed, 0 if failed.
-static int convert_string_to_port(char *str, uint16_t *port){
+int convert_string_to_port(char *str, uint16_t *port){
 
     if (strcmp(str, "any") == 0){
         *port = (uint16_t)0;
@@ -317,7 +318,7 @@ static int convert_string_to_port(char *str, uint16_t *port){
 
 // This function converts port to a string.
 // returns 1 if succeed, 0 if failed.
-static int convert_port_to_string(uint16_t port, char *str){
+int convert_port_to_string(uint16_t port, char *str){
     if (port == 0){
         strcat(str, "any");
         return 1;
@@ -337,7 +338,7 @@ static int convert_port_to_string(uint16_t port, char *str){
 
 // This function converts an ack_t enum to an ack string.
 // returns 1 if succeed, 0 if failed.
-static int convert_string_to_ack(char *str, ack_t *ack){
+int convert_string_to_ack(char *str, ack_t *ack){
     if (strcmp(str, "no") == 0){
         *ack = ACK_NO;
         return 1;
@@ -359,7 +360,7 @@ static int convert_string_to_ack(char *str, ack_t *ack){
 
 // This function converts an ack to an ack string.
 // returns 1 if succeed, 0 if failed.
-static int convert_ack_to_string(ack_t ack, char *str){
+int convert_ack_to_string(ack_t ack, char *str){
     if (ack == ACK_NO){
         strcat(str, "no");
         return 1;
@@ -380,7 +381,7 @@ static int convert_ack_to_string(ack_t ack, char *str){
 
 
 // This function converts an action string to an action.
-static int convert_string_to_action(char *str, uint8_t *action){
+int convert_string_to_action(char *str, uint8_t *action){
     if (strcmp(str, "accept") == 0){
         *action = 1; // NF_ACCEPT - can't use NF_ACCEPT because it's not defined in user.h
         return 1;
@@ -397,7 +398,7 @@ static int convert_string_to_action(char *str, uint8_t *action){
 
 
 // This function converts an action to an action string.
-static int convert_action_to_string(uint8_t action, char *str){
+int convert_action_to_string(uint8_t action, char *str){
     if (action == 1){
         strcat(str, "accept");
         return 1;
@@ -418,7 +419,7 @@ int load_rules(const char *rule_db_file_path){
     FILE *rules_table_fp;
     FILE *sys_fs_fp;
     char line[256];
-    int size_of_kernel_buff = 20 + sizeof(direction_t) + sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint8_t) + sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint8_t) + sizeof(uint16_t) + sizeof(uint16_t) + sizeof(prot_t) + sizeof(ack_t) + sizeof(uint8_t); 
+    int size_of_kernel_buff = 20 + sizeof(direction_t) + sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint8_t) + sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint8_t) + sizeof(uint16_t) + sizeof(uint16_t) + sizeof(prot_t) + sizeof(ack_t) + sizeof(uint8_t);
     char buf_for_kernel[size_of_kernel_buff];
     uint8_t lines_read = 0;
     rules_table_fp = fopen(rule_db_file_path, "r");
@@ -435,7 +436,7 @@ int load_rules(const char *rule_db_file_path){
         }
         lines_read++;
         }
-    
+
     // Now we need to send them to the kernel module.
     // In order to save kernel resources, we will send each rule as a buffer containing only the rule struct.
     // The format of the buffer is:
@@ -478,10 +479,10 @@ int load_rules(const char *rule_db_file_path){
 int show_rules(){
     rule_t rules[MAX_RULES];
     FILE *sys_fs_fp;
-    int size_of_kernel_buff = 20 + sizeof(direction_t) + sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint8_t) + sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint8_t) + sizeof(uint16_t) + sizeof(uint16_t) + sizeof(prot_t) + sizeof(ack_t) + sizeof(uint8_t); 
+    int size_of_kernel_buff = 20 + sizeof(direction_t) + sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint8_t) + sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint8_t) + sizeof(uint16_t) + sizeof(uint16_t) + sizeof(prot_t) + sizeof(ack_t) + sizeof(uint8_t);
     char buf_from_kernel[size_of_kernel_buff];
     uint8_t amount_of_rules;
-   
+
     // First, we need to open the rules device.
     sys_fs_fp = fopen(RULE_SYSFS_PATH, "rb");
 
@@ -496,11 +497,11 @@ int show_rules(){
     // then we will read each rule as a buffer containing only the rule info.
 
     if (fread(&amount_of_rules, 1, 1, sys_fs_fp) != 1){ // write the amount of rules to the rules device
-        printf("Error writing to rules device\n");
+        printf("Error reading to rules device\n");
         return -1;
     }
 
-    for (uint8_t i = 0; i < amount_of_rules; i++){ 
+    for (uint8_t i = 0; i < amount_of_rules; i++){
         // Read the buffer from the rules device.
         if (fread(buf_from_kernel, size_of_kernel_buff, 1, sys_fs_fp) != 1){
             printf("Error reading from rules device\n");
@@ -521,7 +522,7 @@ int show_rules(){
 }
 
 
-static void print_rule(rule_t rule){
+void print_rule(rule_t rule){
     rule_t *rule_ptr = &rule;
     printf("rule name: %s\n", rule_ptr->rule_name);
     printf("direction: %d\n", rule_ptr->direction);
@@ -539,4 +540,3 @@ static void print_rule(rule_t rule){
     printf("\n");
 
 }
-

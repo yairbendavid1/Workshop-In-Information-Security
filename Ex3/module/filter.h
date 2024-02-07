@@ -19,7 +19,7 @@ void set_ack_and_xmas(struct sk_buff *skb, ack_t *packet_ack, __u8 *is_XMAS_Pack
 // functions for checking the packet fields with the rule
 int check_rule_for_packet(rule_t *rule, direction_t *packet_direction, __be32 *packet_src_ip, __be32 *packet_dst_ip, __u8 *packet_protocol, __be16 *packet_src_port, __be16 *packet_dst_port, ack_t *packet_ack);
 int check_packet_port(__be16 packet_port, __be16 rule_port);
-int check_packet_ip(__be32 packet_ip, __be32 rule_ip, __be32 rule_prefix_mask, __u8 rule_prefix_size);
+int check_packet_ip(__be32 rule_ip, __be32 rule_prefix_mask, __u8 rule_prefix_size, __be32 packet_ip);
 int check_packet_ack(ack_t packet_ack, ack_t rule_ack);
 
 

@@ -30,7 +30,7 @@ typedef enum {
 	REASON_XMAS_PACKET           = -4,
 	REASON_ILLEGAL_VALUE         = -6,
 } reason_t;
-	
+
 
 // auxiliary strings, for your convenience
 #define DEVICE_NAME_RULES			"rules"
@@ -75,9 +75,9 @@ typedef struct {
 								// (the field is redundant - easier to print)
 	__be32	dst_ip;
 	__be32	dst_prefix_mask; 	// as above
-	__u8    dst_prefix_size; 	// as above	
-	__be16	src_port; 			// number of port or 0 for any or port 1023 for any port number > 1023  
-	__be16	dst_port; 			// number of port or 0 for any or port 1023 for any port number > 1023 
+	__u8    dst_prefix_size; 	// as above
+	__be16	src_port; 			// number of port or 0 for any or port 1023 for any port number > 1023
+	__be16	dst_port; 			// number of port or 0 for any or port 1023 for any port number > 1023
 	__u8	protocol; 			// values from: prot_t
 	ack_t	ack; 				// values from: ack_t
 	__u8	action;   			// valid values: NF_ACCEPT, NF_DROP
@@ -85,7 +85,7 @@ typedef struct {
 
 // struct for the current rule table assigned to the kernel module
 typedef struct {
-	__8 valid; // is the table valid
+	__u8 valid; // is the table valid
 	__u8 amount; // the amount of rules in the table
 	rule_t rule_table[MAX_RULES]; // the rule table
 } rule_table_t;
@@ -105,3 +105,4 @@ typedef struct {
 } log_row_t;
 
 #endif // _FW_H_
+

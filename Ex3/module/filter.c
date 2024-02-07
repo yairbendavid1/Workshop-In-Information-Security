@@ -1,16 +1,18 @@
-#include "filter.h"
 #include "fw.h"
+#include "rule.h"
+#include "log.h"
+#include "filter.h"
 
 // This function is called when a packet is received at one of the hook points.
 unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook_state *state) {
-    
+
     /*
              TODO:
     *    ADD LOG METHADOLGY
     */
     log_row_t log_for_packet;
-    
-    
+
+
     // First we need to allocate some memory for the fields of the packet that store in the sk_buff.
     // we will use those fields to check if the packet is allowed or not.
     direction_t packet_direction; // the direction of the packet
@@ -20,19 +22,19 @@ unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook
     __be16 packet_dst_port; // the destination port of the packet
     __u8 packet_protocol; // the protocol of the packet
     ack_t packet_ack; // the ack of the packet
-    __8 is_XMAS_Packet; // bit that indicate if the packet is XMAS packet
+    __u8 is_XMAS_Packet; // bit that indicate if the packet is XMAS packet
 
     // Now we will parse the packet and fill the fields with the values from the packet.
-    set_direction(skb, &packet_direction, const struct nf_hook_state *state);
+    set_direction(skb, &packet_direction, state);
     set_src_dst_ip(skb, &packet_src_ip, &packet_dst_ip);
     set_src_dst_port(skb, &packet_src_port, &packet_dst_port);
     set_protocol(skb, &packet_protocol);
     set_ack_and_xmas(skb, &packet_ack, &is_XMAS_Packet);
 
-    
+
     // Loopbacks and packet with other protocols then TCP, UDP and ICMP are accepted withput log
-    
-    // if the packet is a loopback packet we will accept it without log 
+
+    // if the packet is a loopback packet we will accept it without log
     if (((packet_src_ip & 0xFF000000) == 0x7F000000) || ((packet_dst_ip & 0xFF000000) == 0x7F000000)){
         return NF_ACCEPT;
     }
@@ -40,7 +42,7 @@ unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook
     // if the packet is not TCP, UDP or ICMP we will accept it without log
      if (packet_protocol == -1){
         // if packet_protocol is -1 it means the protocol is not TCP, UDP or ICMP and we will accept it
-        return NF_ACCEPT;   
+        return NF_ACCEPT;
      }
 
     // as now, we can fill the time, ip port and protocol fields of the log_row_t struct.
@@ -67,18 +69,19 @@ unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook
     // if no rule is matched we need to drop the packet.
 
     rule_t *rule_table = get_rule_table();
-    for(int ind = 0; ind < get_rules_amount(); ind++){
-        if (check_rule_for_packet(rule_table + ind, &packet_direction, &packet_src_ip, &packet_dst_ip, &packet_protocol, &packet_src_ip, &packet_dst_port, &packet_ack)){
+    int ind;
+    for(ind = 0; ind < get_rules_amount(); ind++){
+        if (check_rule_for_packet(rule_table + ind, &packet_direction, &packet_src_ip, &packet_dst_ip, &packet_protocol, &packet_src_port, &packet_dst_port, &packet_ack)){
             // if we found a match we need to log the action and return the action.
             // when a rule match, the reason of the log will be the rule index.
-            add_log(&log_for_packet, ind, (rule_table + ind).action);
-            return (rule_table + ind).action;
+            add_log(&log_for_packet, ind, (rule_table + ind)->action);
+            return (rule_table + ind)->action;
         }
     }
     // if no match found we log the action and return NF_DROP.
-    add_log(&log_for_packet, REASON_NO_MATCH, NF_DROP);
+    add_log(&log_for_packet, REASON_NO_MATCHING_RULE, NF_DROP);
     return NF_DROP;
-    
+
 }
 
 
@@ -86,7 +89,7 @@ unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook
 void set_direction(struct sk_buff *skb, direction_t *packet_direction, const struct nf_hook_state *state) {
     char * in_device_name = state->in->name;
     char * out_device_name = state->out->name;
-    
+
     if(strcmp(in_device_name, IN_NET_DEVICE_NAME) == 0 && strcmp(out_device_name, OUT_NET_DEVICE_NAME) == 0) { // if the packet is coming from inside to outside
         *packet_direction = DIRECTION_OUT;
     } else if(strcmp(in_device_name, OUT_NET_DEVICE_NAME) == 0 && strcmp(out_device_name, IN_NET_DEVICE_NAME) == 0) { // if the packet is coming from outside to inside
@@ -142,13 +145,13 @@ void set_protocol(struct sk_buff *skb, __u8 *packet_protocol) {
         *packet_protocol = -1; // if the packet is not TCP or UDP or ICMP we want to accept it
      }
      *packet_protocol = packet_ip_header->protocol;
-     
+
 }
 
 
 // This function get a packet and extract the ack field from it and store it in the packet_ack.
 // Also, it checks if the packet is a XMAS packet and store the result in the is_XMAS_Packet.
-void set_ack_and_xmas(struct sk_buff *skb, ack_t *packet_ack, __8 *is_XMAS_Packet) {
+void set_ack_and_xmas(struct sk_buff *skb, ack_t *packet_ack, __u8 *is_XMAS_Packet) {
     // Get transport layer protocol field, and declaring headers
     struct tcphdr *packet_tcp_header;
     struct iphdr *packet_ip_header;
@@ -201,12 +204,12 @@ int check_rule_for_packet(rule_t *rule, direction_t *packet_direction, __be32 *p
     // on udp, we need to check the ports - if they match we have a match!
     // on tcp, we need to check the ports and the ack - if they match we have a match!
     if (*packet_protocol == PROT_ICMP)
-    { 
+    {
         // if the protocol is ICMP we don't need to check the ports and the ack and we can finish.
         return 1;
     }
     else
-    { 
+    {
         // since the protocol is not ICMP we need to check the ports.
         if (!check_packet_port(rule->src_port, *packet_src_port))
         {

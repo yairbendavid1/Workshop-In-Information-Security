@@ -45,6 +45,6 @@ int main(int argc, char *argv[]) {
         printf("Error: Too many arguments\n");
         return EXIT_FAILURE;
     }
-    
+
     return 0; // Return success if no errors occurred
 }

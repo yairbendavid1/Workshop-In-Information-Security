@@ -6,8 +6,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include <netinet/in.h>
 #include <sys/socket.h>
+#include <netinet/in.h>
 #include <arpa/inet.h>
 #include <time.h>
 
@@ -77,9 +77,9 @@ typedef struct {
 								// (the field is redundant - easier to print)
 	uint32_t	dst_ip;
 	uint32_t	dst_prefix_mask; 	// as above
-	uint8_t    dst_prefix_size; 	// as above	
-	uint16_t	src_port; 			// number of port or 0 for any or port 1023 for any port number > 1023  
-	uint16_t	dst_port; 			// number of port or 0 for any or port 1023 for any port number > 1023 
+	uint8_t    dst_prefix_size; 	// as above
+	uint16_t	src_port; 			// number of port or 0 for any or port 1023 for any port number > 1023
+	uint16_t	dst_port; 			// number of port or 0 for any or port 1023 for any port number > 1023
 	prot_t	protocol; 			// values from: prot_t
 	ack_t	ack; 				// values from: ack_t
 	uint8_t	action;   			// valid values: NF_ACCEPT, NF_DROP
@@ -102,3 +102,4 @@ typedef struct {
 
 
 #endif
+

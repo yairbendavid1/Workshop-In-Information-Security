@@ -1,4 +1,7 @@
 #include "fw.h"
+#include "log.h"
+#include "rule.h"
+#include "filter.h"
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Yair");
@@ -22,7 +25,6 @@ static struct nf_hook_ops forward_hook_point_op;
 /* -----------  functions declarations -------------*/
 
 static int initiate_hook_point(struct nf_hook_ops *my_op, enum nf_inet_hooks hook_point_type); // This function registers a hook at the given hook point.
-static unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook_state *state); // This function is called when a packet is received at one of the hook points.
 static int __init my_module_init_function(void);   // This function is called when the module is loaded.
 static void __exit my_module_exit_function(void);  // This function is called when the module is unloaded.
 
@@ -39,12 +41,12 @@ static int initiate_hook_point(struct nf_hook_ops *my_op, enum nf_inet_hooks hoo
     my_op->hook = (nf_hookfn*) Handle_Packet;    // set the hook function to be Handle_Packet
     my_op->hooknum = hook_point_type;                 // the protocol specific hook type identifier.
     my_op->priority = NF_IP_PRI_FIRST;       // max hook priority
-    
+
     return nf_register_net_hook(&init_net, my_op);  // register the hook and return the error code. 0 if no error.
 }
 
 
-// With the log char device, we want to use our own implementation of the open and read functions. 
+// With the log char device, we want to use our own implementation of the open and read functions.
 static struct file_operations log_ops = {.owner = THIS_MODULE, .open = open_log, .read = read_log};
 
 // Unlike the log device, we dont really use the char device created for the rules, so we dont need to implement any functions.
@@ -72,10 +74,10 @@ static int __init my_module_init_function(void){
     /*
     Part 1: Creating the sysfs class, "fw".
     */
-    
+
     sysfs_class = class_create(THIS_MODULE, "fw"); //class_create returns a pointer to the newly created class "fw".
     if (IS_ERR(sysfs_class)) { goto sysfs_class_creation_failed ; } //if an error occured, move to the error section.
-    
+
 
     /*
     Part 2: Creating the log device and assigning it to the class "fw".
@@ -89,7 +91,7 @@ static int __init my_module_init_function(void){
     }
 
     // Create Sysfs device for the log.
-    log_device = device_create(sysfs_class, NULL, MKDEV(log_major, 0), NULL, "log");
+    log_device = device_create(sysfs_class, NULL, MKDEV(log_major_number, 0), NULL, "log");
     if (IS_ERR(log_device))
     {
         goto log_device_creation_failed;
@@ -116,7 +118,7 @@ static int __init my_module_init_function(void){
     // Create Sysfs device for the rules.
     rules_device = device_create(sysfs_class, NULL, MKDEV(rules_major_number, 0), NULL, "rules");
     if (IS_ERR(rules_device)) {
-        goto rule_device_creation_failed;
+        goto rules_device_creation_failed;
     }
 
     // Create the attribute file for the rules device.
@@ -134,14 +136,14 @@ static int __init my_module_init_function(void){
         goto registeration_failed;
     }
 
-    // If we got here, we successfully created the sysfs class, the log device, the rules device and registered the hook point. 
+    // If we got here, we successfully created the sysfs class, the log device, the rules device and registered the hook point.
     return 0;
 
-    
+
 // Error section: undo all the actions that were done before the error occured (in reverse order), then return -1 to indicate that the module failed to load.
 registeration_failed:
-    device_remove_file(rules_dev, (const struct device_attribute *)&dev_attr_rules.attr);
-rules_file_creation_failed
+    device_remove_file(rules_device, (const struct device_attribute *)&dev_attr_rules.attr);
+rules_file_creation_failed:
     device_destroy(sysfs_class, MKDEV(rules_major_number, 0));
 rules_device_creation_failed:
     unregister_chrdev(rules_major_number, "rules");
@@ -157,14 +159,14 @@ sysfs_class_creation_failed:
     return -1;
 }
 
-static int __exit my_module_exit_function(void){
-    nf_unregister_net_hook(&init_net, &nf_forward_op);
+static void __exit my_module_exit_function(void){
+    nf_unregister_net_hook(&init_net, &forward_hook_point_op);
     device_remove_file(log_device, (const struct device_attribute *)&dev_attr_reset.attr);
     device_destroy(sysfs_class, MKDEV(log_major_number, 0));
-    unregister_chrdev(log_major_number, MAJOR_NAME_LOG);
+    unregister_chrdev(log_major_number, "fw_log");
     device_remove_file(rules_device, (const struct device_attribute *)&dev_attr_rules.attr);
     device_destroy(sysfs_class, MKDEV(rules_major_number, 0));
-    unregister_chrdev(rules_major_number, MAJOR_NAME_RULE);
+    unregister_chrdev(rules_major_number, "rules");
 }
 
 module_init(my_module_init_function);

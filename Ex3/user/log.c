@@ -21,12 +21,12 @@ int clear_log()
             printf("Error: Cant write to log sysfs\n");
             return EXIT_FAILURE;
         }
-    
+
     // Close the sysfs log device
     fclose(log_sysfs_fd);
 
     return EXIT_SUCCESS;
-}   
+}
 
 
 // This function will be called when the user enter the command "show_log"
@@ -49,16 +49,16 @@ int show_log()
     }
 
     // Now we will read the log buffers from the log device and print them to the user
-    
+
     // the size of the buffer:
     int buff_size = sizeof(unsigned long) + sizeof(unsigned char) + sizeof(unsigned char) + sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint16_t) + sizeof(uint16_t) + sizeof(reason_t) + sizeof(unsigned int);
     char log_row_buf[buff_size]; // The buffer we will read the logs to
-    log_row_t current_log; 
+    log_row_t current_log;
     char log_string[256];
 
     // Before we print the logs, we need to print the titles of the columns of the log table.
     printf("timestamp			src_ip			dst_ip			src_port	dst_port	protocol	action	reason				count\n");
-    
+
     // Now we will read the logs from the log device and print them to the user
     for (int i = 0; i < size; i++)
     {
@@ -210,4 +210,3 @@ void log_convert_count_to_string(unsigned int count, char *log_string)
     sprintf(count_str, "%d", count);
     strcat(log_string, count_str);
 }
-
