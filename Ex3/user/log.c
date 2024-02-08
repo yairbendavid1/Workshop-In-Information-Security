@@ -2,7 +2,7 @@
 #include "log.h"
 #include "rule.h"
 
-#define RESET_LOG_PATH "/sys/class/fw/log/reset"
+#define RESET_LOG_PATH "/sys/class/fw/fw_log/reset"
 #define READ_LOG_PATH "/dev/fw_log"
 
 // This function will be called when the user enter the command "reset_log"
@@ -10,7 +10,7 @@
 int clear_log()
 {
     // Open the sysfs log device
-    FILE *log_sysfs_fd = fopen(RESET_LOG_PATH, "w");
+    FILE *log_sysfs_fd = fopen(RESET_LOG_PATH, "wb");
     if (log_sysfs_fd == NULL){ // on error:
         printf("Error: Cant open the log sysfs\n");
         return EXIT_FAILURE;
@@ -57,7 +57,7 @@ int show_log()
     char log_string[256];
 
     // Before we print the logs, we need to print the titles of the columns of the log table.
-    printf("timestamp			src_ip			dst_ip			src_port	dst_port	protocol	action	reason				count\n");
+    printf("timestamp			src_ip			dst_ip			src_port	dst_port	protocol	action	reason			count\n");
 
     // Now we will read the logs from the log device and print them to the user
     for (int i = 0; i < size; i++)
@@ -70,15 +70,31 @@ int show_log()
 
         // Convert the buffer to a log struct
         convert_buff_to_log(&current_log, log_row_buf);
+        //print_log(&current_log);
 
         // Convert the log struct to a string
         convert_log_to_string(&current_log, log_string);
 
         // Print the string to the user
-        printf("%s", log_string);
+        printf("%s\n", log_string);
     }
     return EXIT_SUCCESS;
 }
+
+
+
+void print_log(log_row_t *log){
+    printf("time: %d\n", log->timestamp);
+    printf("protocol: %d\n", log->protocol);
+    printf("action: %d\n", log->action);
+    printf("src_ip: %d\n", log->src_ip);
+    printf("dst_ip: %d\n", log->dst_ip);
+    printf("src_port: %d\n", log->src_port);
+    printf("dst_port: %d\n", log->dst_port);
+    printf("reason: %d\n", log->reason);
+    printf("count: %d\n", log->count);
+}
+
 
 
 // This function will convert a buffer read from the log device to a log struct
@@ -133,7 +149,12 @@ void log_convert_ip_to_string(uint32_t ip, char *log_string)
 void log_convert_port_to_string(uint16_t port, char *log_string)
 {
     char port_str[8];
+    if (port == 0){
+      sprintf(port_str, "any");
+    }
+    else{
     sprintf(port_str, "%d", port);
+    }
     strcat(log_string, port_str);
     strcat(log_string, "		");
 }
@@ -179,26 +200,34 @@ void log_convert_action_to_string(unsigned char action, char *log_string)
 }
 
 
-void log_convert_reason_to_string(reason_t reason, char *log_string)
+void log_convert_reason_to_string(int reason, char *log_string)
 {
-    char *reason_str;
     if (reason == REASON_FW_INACTIVE)
     {
+        char *reason_str;
         reason_str = "FW_INACTIVE";
+        strcat(log_string, reason_str);
+        strcat(log_string, "		");
+        return;
     }
-    else if (reason == REASON_NO_MATCHING_RULE)
+    if (reason == REASON_NO_MATCHING_RULE)
     {
+        char *reason_str;
         reason_str = "NO_MATCHING_RULE";
+        strcat(log_string, reason_str);
+        strcat(log_string, "		");
+        return;
     }
-    else if (reason == REASON_XMAS_PACKET)
+    if (reason == REASON_XMAS_PACKET)
     {
+        char *reason_str;
         reason_str = "XMAS_PACKET";
+        strcat(log_string, reason_str);
+        strcat(log_string, "		");
+        return;
     }
-    else
-    {
-        char reason_str[8];
-        sprintf(reason_str, "%d", reason);
-    }
+    char reason_str[8];
+    sprintf(reason_str, "%d", reason);
     strcat(log_string, reason_str);
     strcat(log_string, "		");
 }

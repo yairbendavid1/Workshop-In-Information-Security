@@ -17,8 +17,10 @@ void log_convert_ip_to_string(uint32_t ip, char *log_string);
 void log_convert_port_to_string(uint16_t port, char *log_string);
 void log_convert_protocol_to_string(unsigned char protocol, char *log_string);
 void log_convert_action_to_string(unsigned char action, char *log_string);
-void log_convert_reason_to_string(reason_t reason, char *log_string);
+void log_convert_reason_to_string(int reason, char *log_string);
 void log_convert_count_to_string(unsigned int count, char *log_string);
 
 
-#endif 
+void print_log(log_row_t *log);
+
+#endif

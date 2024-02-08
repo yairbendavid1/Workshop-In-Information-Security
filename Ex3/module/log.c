@@ -62,6 +62,7 @@ __u8 logcmp(log_row_t *obj1, log_row_t *obj2){
 void add_log(log_row_t *log, reason_t reason, unsigned char action){
     //first we need to set the reason and action fields
     log->reason = reason;
+    printk("AT ADD_LOG THE REASON IS %d\n", log->reason);
     log->action = action;
 
     // we will use the list_for_each_entry macro to iterate over the list
@@ -76,12 +77,15 @@ void add_log(log_row_t *log, reason_t reason, unsigned char action){
             getnstimeofday(&time);
             entry->log_data.timestamp = time.tv_sec;
             entry->log_data.count++;
+            print_log(&entry->log_data);
             return;
         }
     }
     // if we did not find a match, we will add the log_row_t struct to the list
     log_node_t *new_log = kmalloc(sizeof(log_node_t), GFP_KERNEL);
+    log->count = 1;
     new_log->log_data = *log;
+    printk("I ADD A LOG AND THE REASON OF THIS LOG IS: %d", new_log->log_data.reason);
     list_add_tail(&new_log->klist_log_node, &log_head);
     log_size++;
 }
@@ -107,7 +111,7 @@ ssize_t reset_log(struct device *dev, struct device_attribute *attr, const char 
 // it will set 2 flags to zero:
 // 1. sent_log_size - a flag to indicate if the log size was written to the user file buffer yet.
 // 2. current_log_on_read - a flag to indicate the current log on read, so we can continue from the last log on the next read.
-int open_log(struct inode *inode, struct file *filp){
+int open_log(struct inode *_inode, struct file *_file){
     // we will set the flags to 0 and
     sent_log_size = 0;
     current_log_on_read = NULL;

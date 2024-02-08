@@ -22,5 +22,7 @@ int check_packet_port(__be16 packet_port, __be16 rule_port);
 int check_packet_ip(__be32 rule_ip, __be32 rule_prefix_mask, __u8 rule_prefix_size, __be32 packet_ip);
 int check_packet_ack(ack_t packet_ack, ack_t rule_ack);
 
+void print_log(log_row_t *log);
+
 
 #endif

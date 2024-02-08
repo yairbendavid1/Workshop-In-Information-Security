@@ -5,11 +5,7 @@
 
 // This function is called when a packet is received at one of the hook points.
 unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook_state *state) {
-
-    /*
-             TODO:
-    *    ADD LOG METHADOLGY
-    */
+    printk("I snaped a pool");
     log_row_t log_for_packet;
 
 
@@ -52,6 +48,7 @@ unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook
 
     // we need to check for XMAS packet
     if(is_XMAS_Packet){
+        printk("XMAS PACKETT FOUND!\n");
         add_log(&log_for_packet, REASON_XMAS_PACKET, NF_DROP);
         return NF_DROP;
     }
@@ -60,6 +57,7 @@ unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook
     // If the rule table is not valid, then accept automatically (and log the action).
     if (is_valid_table() == 0)
     {
+        printk(" PACKETT FOUND BUT NOT A VALID TABLE!\n");
         add_log(&log_for_packet, REASON_FW_INACTIVE, NF_ACCEPT);
         return NF_ACCEPT;
     }
@@ -71,9 +69,11 @@ unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook
     rule_t *rule_table = get_rule_table();
     int ind;
     for(ind = 0; ind < get_rules_amount(); ind++){
+        printk("THE PACKET DIRECTION: %d,   RULE DIRECTION:   %d\n",packet_direction, (rule_table +ind)->direction);
         if (check_rule_for_packet(rule_table + ind, &packet_direction, &packet_src_ip, &packet_dst_ip, &packet_protocol, &packet_src_port, &packet_dst_port, &packet_ack)){
             // if we found a match we need to log the action and return the action.
             // when a rule match, the reason of the log will be the rule index.
+            printk("PACKETT FOUND AND MATCH THE %d RULE!\n", ind);
             add_log(&log_for_packet, ind, (rule_table + ind)->action);
             return (rule_table + ind)->action;
         }
@@ -89,14 +89,15 @@ unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook
 void set_direction(struct sk_buff *skb, direction_t *packet_direction, const struct nf_hook_state *state) {
     char * in_device_name = state->in->name;
     char * out_device_name = state->out->name;
-
     if(strcmp(in_device_name, IN_NET_DEVICE_NAME) == 0 && strcmp(out_device_name, OUT_NET_DEVICE_NAME) == 0) { // if the packet is coming from inside to outside
         *packet_direction = DIRECTION_OUT;
-    } else if(strcmp(in_device_name, OUT_NET_DEVICE_NAME) == 0 && strcmp(out_device_name, IN_NET_DEVICE_NAME) == 0) { // if the packet is coming from outside to inside
-        *packet_direction = DIRECTION_OUT;
-    } else {
-        *packet_direction = DIRECTION_ANY;
+        return;
+      }
+    if(strcmp(in_device_name, OUT_NET_DEVICE_NAME) == 0 && strcmp(out_device_name, IN_NET_DEVICE_NAME) == 0) { // if the packet is coming from outside to inside
+        *packet_direction = DIRECTION_IN;
+        return;
     }
+    *packet_direction = 0;
 }
 
 
@@ -132,6 +133,10 @@ void set_src_dst_port(struct sk_buff *skb, __be16 *packet_src_port, __be16 *pack
             *packet_dst_port = ntohs(packet_udp_header->dest);
             break;
         }
+        case PROT_ICMP: {
+          *packet_src_port = 0;
+          *packet_dst_port = 0;
+        }
     }
 }
 
@@ -165,6 +170,7 @@ void set_ack_and_xmas(struct sk_buff *skb, ack_t *packet_ack, __u8 *is_XMAS_Pack
         if (packet_tcp_header->fin && packet_tcp_header->urg && packet_tcp_header->psh)
         {
             *is_XMAS_Packet = 1;
+            return;
         }
     }
     *is_XMAS_Packet = 0;
@@ -173,22 +179,25 @@ void set_ack_and_xmas(struct sk_buff *skb, ack_t *packet_ack, __u8 *is_XMAS_Pack
 
 // This function get a rule and a packet and check if the rule is valid for the packet.
 // If the rule is valid for the packet it returns 1, otherwise it returns 0.
-int check_rule_for_packet(rule_t *rule, direction_t *packet_direction, __be32 *packet_src_ip, __be32 *packet_dst_ip, __u8 *packet_protocol, __be16 *packet_src_port, __be16 *packet_dst_port, ack_t *packet_ack) {
+int check_rule_for_packet(rule_t *rule, unsigned int *packet_direction, __be32 *packet_src_ip, __be32 *packet_dst_ip, __u8 *packet_protocol, __be16 *packet_src_port, __be16 *packet_dst_port, ack_t *packet_ack) {
     // Check if the direction is the same
-    if (rule->direction != DIRECTION_ANY && rule->direction != *packet_direction)
+    if ((rule->direction != DIRECTION_ANY) && (*packet_direction != rule->direction))
     {
+      printk("dir\n");
         return 0;
     }
 
     // Check if the src ip is the same
     if (!check_packet_ip(rule->src_ip, rule->src_prefix_mask, rule->src_prefix_size, *packet_src_ip))
     {
+        printk("src_ip\n");
         return 0;
     }
 
     // Check if the dst ip is the same
     if (!check_packet_ip(rule->dst_ip, rule->dst_prefix_mask, rule->dst_prefix_size, *packet_dst_ip))
     {
+        printk("dst_ip\n");
         return 0;
     }
 
@@ -196,6 +205,7 @@ int check_rule_for_packet(rule_t *rule, direction_t *packet_direction, __be32 *p
     // Check if the protocol is the same
     if (rule->protocol != PROT_ANY && rule->protocol != *packet_protocol)
     {
+      printk("proc\n");
         return 0;
     }
 
@@ -213,10 +223,12 @@ int check_rule_for_packet(rule_t *rule, direction_t *packet_direction, __be32 *p
         // since the protocol is not ICMP we need to check the ports.
         if (!check_packet_port(rule->src_port, *packet_src_port))
         {
+            printk("src_port\n");
             return 0;
         }
         if (!check_packet_port(rule->dst_port, *packet_dst_port))
         {
+            printk("dst_port\n");
             return 0;
         }
         // if we are here it means that the ports are the same.
@@ -231,6 +243,7 @@ int check_rule_for_packet(rule_t *rule, direction_t *packet_direction, __be32 *p
             // If the protocol is TCP we need to check the ack.
             if (!check_packet_ack(rule->ack, *packet_ack))
             {
+                printk("ack\n");
                 return 0;
             }
             else
@@ -246,6 +259,7 @@ int check_rule_for_packet(rule_t *rule, direction_t *packet_direction, __be32 *p
 
 // This function check if the ip of the packet is the same as the ip of the rule.
 int check_packet_ip(__be32 rule_ip, __be32 rule_prefix_mask, __u8 rule_prefix_size, __be32 packet_ip) {
+    printk("%d %d\n",rule_ip, packet_ip );
     __be32 rule_ip_network = rule_ip & rule_prefix_mask;
     __be32 packet_ip_network = packet_ip & rule_prefix_mask;
     return rule_ip_network == packet_ip_network;
@@ -268,3 +282,29 @@ int check_packet_port(__be16 rule_port, __be16 packet_port) {
 int check_packet_ack(ack_t rule_ack, ack_t packet_ack) {
     return rule_ack == packet_ack;
 }
+
+void print_log(log_row_t *log){
+    printk("time: %d\n", log->timestamp);
+    printk("protocol: %d\n", log->protocol);
+    printk("action: %d\n", log->action);
+    printk("src_ip: %d\n", log->src_ip);
+    printk("dst_ip: %d\n", log->dst_ip);
+    printk("src_port: %d\n", log->src_port);
+    printk("dst_port: %d\n", log->dst_port);
+    printk("reason: %d\n", log->reason);
+    printk("count: %d\n", log->count);
+}
+
+/*
+typedef struct {
+	unsigned long  	timestamp;     	// time of creation/update
+	unsigned char  	protocol;     	// values from: prot_t
+	unsigned char  	action;       	// valid values: NF_ACCEPT, NF_DROP
+	__be32   		src_ip;		  	// if you use this struct in userspace, change the type to unsigned int
+	__be32			dst_ip;		  	// if you use this struct in userspace, change the type to unsigned int
+	__be16 			src_port;	  	// if you use this struct in userspace, change the type to unsigned short
+	__be16 			dst_port;	  	// if you use this struct in userspace, change the type to unsigned short
+	reason_t     	reason;       	// rule#index, or values from: reason_t
+	unsigned int   	count;        	// counts this line's hits
+} log_row_t;
+*/

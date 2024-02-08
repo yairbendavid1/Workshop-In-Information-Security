@@ -14,6 +14,6 @@ rule_t *get_rule_table(void);
 __u8 get_rules_amount(void);
 int is_valid_table(void);
 int check_rule_format(rule_t *rule);
+static void print_rule(rule_t rule);
 
 #endif
-

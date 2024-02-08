@@ -15,6 +15,8 @@ static int log_major_number;
 static struct class* sysfs_class = NULL;
 static struct device* rules_device = NULL;
 static struct device* log_device = NULL;
+static struct device *log_dev = NULL;
+static int log_major;
 
 // Allocating one hook point for forwarding hook point
 static struct nf_hook_ops forward_hook_point_op;
@@ -27,6 +29,7 @@ static struct nf_hook_ops forward_hook_point_op;
 static int initiate_hook_point(struct nf_hook_ops *my_op, enum nf_inet_hooks hook_point_type); // This function registers a hook at the given hook point.
 static int __init my_module_init_function(void);   // This function is called when the module is loaded.
 static void __exit my_module_exit_function(void);  // This function is called when the module is unloaded.
+
 
 /* -----------  functions implementations -------------*/
 
@@ -84,24 +87,48 @@ static int __init my_module_init_function(void){
     */
 
     // Creating char device fot the log, named "fw_log".
-    log_major_number = register_chrdev(0, "fw_log", &log_ops);
-    if (log_major_number < 0)
+    log_major = register_chrdev(0, "fw_logg", &log_ops);
+    if (log_major < 0)
     {
         goto log_char_device_creation_failed;
     }
+    //
+    // // Create Sysfs device for the log.
+    // log_device = device_create(sysfs_class, NULL, MKDEV(log_major_number, 0), NULL, "log");
+    // if (IS_ERR(log_device))
+    // {
+    //     goto log_device_creation_failed;
+    // }
+    //
+    // // Create the attribute file for the log device.
+    // if (device_create_file(log_device, (const struct device_attribute *)&dev_attr_reset.attr))
+    // {
+    //     goto log_file_creation_failed;
+    // }
 
-    // Create Sysfs device for the log.
-    log_device = device_create(sysfs_class, NULL, MKDEV(log_major_number, 0), NULL, "log");
-    if (IS_ERR(log_device))
+
+
+    // create char device
+    // log_major = register_chrdev(0, "fw-chardev2", &log_ops);
+    // if (log_major < 0)
+    // {
+    //     goto log_char_device_creation_failed;
+    // }
+
+    // create sysfs device - acced from sysfs
+    log_device = device_create(sysfs_class, NULL, MKDEV(log_major, 0), NULL, "fw_log");
+    if (IS_ERR(log_dev))
     {
         goto log_device_creation_failed;
     }
 
-    // Create the attribute file for the log device.
+    // create sysfs file attributes
     if (device_create_file(log_device, (const struct device_attribute *)&dev_attr_reset.attr))
     {
         goto log_file_creation_failed;
     }
+
+
 
 
 
@@ -150,9 +177,9 @@ rules_device_creation_failed:
 rules_char_device_creation_failed:
     device_remove_file(log_device, (const struct device_attribute *)&dev_attr_reset.attr);
 log_file_creation_failed:
-    device_destroy(sysfs_class, MKDEV(log_major_number, 0));
+    device_destroy(sysfs_class, MKDEV(log_major, 0));
 log_device_creation_failed:
-    unregister_chrdev(log_major_number, "fw_log");
+    unregister_chrdev(log_major, "fw_logg");
 log_char_device_creation_failed:
     class_destroy(sysfs_class);
 sysfs_class_creation_failed:
@@ -162,11 +189,12 @@ sysfs_class_creation_failed:
 static void __exit my_module_exit_function(void){
     nf_unregister_net_hook(&init_net, &forward_hook_point_op);
     device_remove_file(log_device, (const struct device_attribute *)&dev_attr_reset.attr);
-    device_destroy(sysfs_class, MKDEV(log_major_number, 0));
-    unregister_chrdev(log_major_number, "fw_log");
+    device_destroy(sysfs_class, MKDEV(log_major, 0));
+    unregister_chrdev(log_major, "fw_logg");
     device_remove_file(rules_device, (const struct device_attribute *)&dev_attr_rules.attr);
     device_destroy(sysfs_class, MKDEV(rules_major_number, 0));
     unregister_chrdev(rules_major_number, "rules");
+    class_destroy(sysfs_class);
 }
 
 module_init(my_module_init_function);
