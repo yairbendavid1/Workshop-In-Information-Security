@@ -1,4 +1,6 @@
-all: usermode_interface.c
-	gcc -O3 -Wall -std=c11 -o usermode_interface.o usermode_interface.c
+OBJECTS = user.c rule.c log.c
+
+all: $(OBJECTS)
+	gcc -O3 -Wall -std=c11 -o main $(OBJECTS)
 clean:
-	$(RM) usermode_interface.o
+	$(RM) main

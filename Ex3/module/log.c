@@ -62,7 +62,7 @@ __u8 logcmp(log_row_t *obj1, log_row_t *obj2){
 void add_log(log_row_t *log, reason_t reason, unsigned char action){
     //first we need to set the reason and action fields
     log->reason = reason;
-    printk("AT ADD_LOG THE REASON IS %d\n", log->reason);
+    //printk("AT ADD_LOG THE REASON IS %d\n", log->reason);
     log->action = action;
 
     // we will use the list_for_each_entry macro to iterate over the list
@@ -77,7 +77,6 @@ void add_log(log_row_t *log, reason_t reason, unsigned char action){
             getnstimeofday(&time);
             entry->log_data.timestamp = time.tv_sec;
             entry->log_data.count++;
-            print_log(&entry->log_data);
             return;
         }
     }

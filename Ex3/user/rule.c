@@ -431,7 +431,6 @@ int load_rules(const char *rule_db_file_path){
     }
     // Read the file line by line and convert each line to a rule struct and save it in the rules array.
     while (fgets(line, sizeof(line), rules_table_fp) != NULL){
-        printf("read the #%i line: %s\n", lines_read, line);
         if (convert_string_to_rule(line, rules + lines_read) == -1){
             printf("Error converting string to rule\n");
             return -1;
@@ -445,7 +444,6 @@ int load_rules(const char *rule_db_file_path){
     // <rule_name> <direction> <src_ip> <dst_ip>  <protocol> <src_port> <dst_port> <ack> <action>
 
     // First, we need to open the rules device.
-    printf("\n\n\n rules have been readen good, now open device\n");
     sys_fs_fp = fopen(RULE_SYSFS_PATH, "wb");
     if (sys_fs_fp == NULL){ // check if the file was opened successfully
         printf("Error opening rules device\n");
@@ -465,19 +463,15 @@ int load_rules(const char *rule_db_file_path){
     for (uint8_t i = 0; i < lines_read; i++){ // iterate over the rules array
         // Convert the rule struct to a buffer.
         create_buff_from_rule(rules + i, buf_for_kernel);
-        print_rule(*(rules + i));
         // Write the buffer to the rules device.
         cd = fwrite(buf_for_kernel, size_of_kernel_buff, 1, sys_fs_fp);
-        printf("%d\n",cd);
         if (cd != 1){
             printf("Error writing to rules device\n");
             return -1;
         }
     }
-    printf("\n\n\n\n %d \n\n\n", sizeof(ack_t));
     fclose(rules_table_fp);
     fclose(sys_fs_fp);
-    printf("%d/n", size_of_kernel_buff);
     return 0;
 }
 
@@ -508,6 +502,9 @@ int show_rules(){
     if (cd != 1){ // write the amount of rules to the rules device
         printf("Error reading to rules device\n");
         return -1;
+    }
+    if (amount_of_rules == 0){
+      printf("There are no rules.\n");
     }
     for (uint8_t i = 0; i < amount_of_rules; i++){
         // Read the buffer from the rules device.

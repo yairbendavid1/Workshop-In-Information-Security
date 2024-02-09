@@ -26,7 +26,7 @@ unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook
     set_src_dst_port(skb, &packet_src_port, &packet_dst_port);
     set_protocol(skb, &packet_protocol);
     set_ack_and_xmas(skb, &packet_ack, &is_XMAS_Packet);
-
+    printk("%d", packet_protocol);
 
     // Loopbacks and packet with other protocols then TCP, UDP and ICMP are accepted withput log
 
@@ -34,9 +34,9 @@ unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook
     if (((packet_src_ip & 0xFF000000) == 0x7F000000) || ((packet_dst_ip & 0xFF000000) == 0x7F000000)){
         return NF_ACCEPT;
     }
-
+    printk("%d\n", packet_protocol == PROT_OTHER);
     // if the packet is not TCP, UDP or ICMP we will accept it without log
-     if (packet_protocol == -1){
+     if (packet_protocol == PROT_OTHER){
         // if packet_protocol is -1 it means the protocol is not TCP, UDP or ICMP and we will accept it
         return NF_ACCEPT;
      }
@@ -69,7 +69,6 @@ unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook
     rule_t *rule_table = get_rule_table();
     int ind;
     for(ind = 0; ind < get_rules_amount(); ind++){
-        printk("THE PACKET DIRECTION: %d,   RULE DIRECTION:   %d\n",packet_direction, (rule_table +ind)->direction);
         if (check_rule_for_packet(rule_table + ind, &packet_direction, &packet_src_ip, &packet_dst_ip, &packet_protocol, &packet_src_port, &packet_dst_port, &packet_ack)){
             // if we found a match we need to log the action and return the action.
             // when a rule match, the reason of the log will be the rule index.
@@ -147,7 +146,8 @@ void set_protocol(struct sk_buff *skb, __u8 *packet_protocol) {
     struct iphdr *packet_ip_header;
     packet_ip_header = ip_hdr(skb);
     if (packet_ip_header->protocol != PROT_TCP && packet_ip_header->protocol != PROT_UDP && packet_ip_header->protocol != PROT_ICMP){
-        *packet_protocol = -1; // if the packet is not TCP or UDP or ICMP we want to accept it
+        *packet_protocol = PROT_OTHER; // if the packet is not TCP or UDP or ICMP we want to accept it
+        return;
      }
      *packet_protocol = packet_ip_header->protocol;
 
@@ -259,7 +259,7 @@ int check_rule_for_packet(rule_t *rule, unsigned int *packet_direction, __be32 *
 
 // This function check if the ip of the packet is the same as the ip of the rule.
 int check_packet_ip(__be32 rule_ip, __be32 rule_prefix_mask, __u8 rule_prefix_size, __be32 packet_ip) {
-    printk("%d %d\n",rule_ip, packet_ip );
+    //printk("%d %d\n",rule_ip, packet_ip );
     __be32 rule_ip_network = rule_ip & rule_prefix_mask;
     __be32 packet_ip_network = packet_ip & rule_prefix_mask;
     return rule_ip_network == packet_ip_network;
@@ -280,6 +280,9 @@ int check_packet_port(__be16 rule_port, __be16 packet_port) {
 }
 
 int check_packet_ack(ack_t rule_ack, ack_t packet_ack) {
+    if (rule_ack == ACK_ANY){
+      return 1;
+    }
     return rule_ack == packet_ack;
 }
 
@@ -294,6 +297,8 @@ void print_log(log_row_t *log){
     printk("reason: %d\n", log->reason);
     printk("count: %d\n", log->count);
 }
+
+
 
 /*
 typedef struct {

@@ -35,15 +35,17 @@ int is_valid_table(void){
 // On show rules command, the user will read from the rules device all the rules buffer, and this function will be called.
 // This function will convert all the rules to a buffer and return it to the user.
 ssize_t show_rules(struct device *dev, struct device_attribute *attr, char *buf){
-    printk("\n\n\n NOW SOMEONE WANNTED TO READ\n");
     int i;
     __u8 size_of_kernel_buff;
     __u8 rules_amount;
     ssize_t cnt;
-    // If the rule set is not valid, we will return 0
-    if (current_rule_set.valid == 0)
+    // If the rule set is not valid, we will write 0 and return.
+    if (current_rule_set.valid == 0 || current_rule_set.amount == 0)
     {
-        return 0;
+      rules_amount = 0;
+      copy_to_buff_and_increase(&buf, &rules_amount, sizeof(rules_amount));
+      cnt += sizeof(rules_amount); // Increase the cnt by the rules amount size
+      return cnt;
     }
 
     // First we will write the rules amount to the buffer
@@ -74,7 +76,6 @@ ssize_t show_rules(struct device *dev, struct device_attribute *attr, char *buf)
 // on error, we will keep the old rule table.
 ssize_t store_rules(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
 {
-    printk("\n\n\n NOW SOMEONE START TO WRITE HERE\n");
     int i;
     __u8 size_of_kernel_buff;
     rule_table_t new_rule_set = {.valid = 0}; // The new rule that we will use for filtering
@@ -82,22 +83,17 @@ ssize_t store_rules(struct device *dev, struct device_attribute *attr, const cha
     // First we will read the rules amount from the buffer
     __u8 rules_amount = 0;
     copy_from_buff_and_increase(&buf, &rules_amount, sizeof(rules_amount));
-    printk("\n\n\n STAGE 1\n");
-    printk("\n\n\n %d %d %d \n\n\n", rules_amount, count, (rules_amount * size_of_kernel_buff + sizeof(rules_amount)));
     // Check if the rules amount is not bigger than the max rules
     if (rules_amount > MAX_RULES)
     {
         return count;
     }
-    printk("\n\n\n STAGE 1.5\n");
-    printk("\n\n\n %d %d %d \n\n\n", rules_amount, count, (rules_amount * size_of_kernel_buff + sizeof(rules_amount)));
     //
     // // Check if the buffer size is valid ( the buffer size should be the rules amount * rule size + the rules amount size)
     // if (count >= (rules_amount * size_of_kernel_buff + sizeof(rules_amount)))
     // {
     //     return count;
     // }
-    printk("\n\n\n STAGE 2\n");
     new_rule_set.amount = rules_amount; // Update the new rule set amount
     // We will read all the rules from the buffer and store them in the rule_table
 
@@ -106,18 +102,16 @@ ssize_t store_rules(struct device *dev, struct device_attribute *attr, const cha
         rule_t *rule = &new_rule_set.rule_table[i];
         create_rule_from_buff(rule, buf); // Convert the buffer to a rule
         buf += size_of_kernel_buff; // Increase the buffer address to the next rule
-        print_rule(*rule);
+
         // if (check_rule_format(rule) == -1) // Check if the rule is valid
         // {
         //     return count;
         // }
 
     }
-    printk("\n\n\n STAGE 3 and %d\n", size_of_kernel_buff);
     new_rule_set.valid = 1; // Mark the new rule set as valid
 
     current_rule_set = new_rule_set; // Update the current rule set
-    printk("finish show_rules, %d", rules_amount);
     return count;
 }
 
