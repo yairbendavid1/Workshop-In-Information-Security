@@ -159,7 +159,7 @@ static int __init my_module_init_function(void){
 
 
     if (initiate_hook_point(&forward_hook_point_op, NF_INET_FORWARD) != 0) {
-        printk(KERN_INFO "Error on setting netfilter FORWARD hook point\n");
+        printk("Error on setting netfilter FORWARD hook point\n");
         goto registeration_failed;
     }
 

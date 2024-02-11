@@ -62,7 +62,7 @@ __u8 logcmp(log_row_t *obj1, log_row_t *obj2){
 void add_log(log_row_t *log, reason_t reason, unsigned char action){
     //first we need to set the reason and action fields
     log->reason = reason;
-    //printk("AT ADD_LOG THE REASON IS %d\n", log->reason);
+    
     log->action = action;
 
     // we will use the list_for_each_entry macro to iterate over the list
@@ -84,7 +84,6 @@ void add_log(log_row_t *log, reason_t reason, unsigned char action){
     log_node_t *new_log = kmalloc(sizeof(log_node_t), GFP_KERNEL);
     log->count = 1;
     new_log->log_data = *log;
-    printk("I ADD A LOG AND THE REASON OF THIS LOG IS: %d", new_log->log_data.reason);
     list_add_tail(&new_log->klist_log_node, &log_head);
     log_size++;
 }
@@ -201,18 +200,4 @@ void convert_log_to_buff(const log_row_t *log, char *buf){
 }
 
 
-/*
 
-typedef struct {
-	unsigned long  	timestamp;     	// time of creation/update
-	unsigned char  	protocol;     	// values from: prot_t
-	unsigned char  	action;       	// valid values: NF_ACCEPT, NF_DROP
-	__be32   		src_ip;		  	// if you use this struct in userspace, change the type to unsigned int
-	__be32			dst_ip;		  	// if you use this struct in userspace, change the type to unsigned int
-	__be16 			src_port;	  	// if you use this struct in userspace, change the type to unsigned short
-	__be16 			dst_port;	  	// if you use this struct in userspace, change the type to unsigned short
-	reason_t     	reason;       	// rule#index, or values from: reason_t
-	unsigned int   	count;        	// counts this line's hits
-} log_row_t;
-
-*/

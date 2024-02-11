@@ -5,7 +5,6 @@
 
 // This function is called when a packet is received at one of the hook points.
 unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook_state *state) {
-    printk("I snaped a pool");
     log_row_t log_for_packet;
 
 
@@ -26,7 +25,6 @@ unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook
     set_src_dst_port(skb, &packet_src_port, &packet_dst_port);
     set_protocol(skb, &packet_protocol);
     set_ack_and_xmas(skb, &packet_ack, &is_XMAS_Packet);
-    printk("%d", packet_protocol);
 
     // Loopbacks and packet with other protocols then TCP, UDP and ICMP are accepted withput log
 
@@ -34,7 +32,7 @@ unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook
     if (((packet_src_ip & 0xFF000000) == 0x7F000000) || ((packet_dst_ip & 0xFF000000) == 0x7F000000)){
         return NF_ACCEPT;
     }
-    printk("%d\n", packet_protocol == PROT_OTHER);
+
     // if the packet is not TCP, UDP or ICMP we will accept it without log
      if (packet_protocol == PROT_OTHER){
         // if packet_protocol is -1 it means the protocol is not TCP, UDP or ICMP and we will accept it
@@ -48,7 +46,6 @@ unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook
 
     // we need to check for XMAS packet
     if(is_XMAS_Packet){
-        printk("XMAS PACKETT FOUND!\n");
         add_log(&log_for_packet, REASON_XMAS_PACKET, NF_DROP);
         return NF_DROP;
     }
@@ -57,7 +54,7 @@ unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook
     // If the rule table is not valid, then accept automatically (and log the action).
     if (is_valid_table() == 0)
     {
-        printk(" PACKETT FOUND BUT NOT A VALID TABLE!\n");
+        
         add_log(&log_for_packet, REASON_FW_INACTIVE, NF_ACCEPT);
         return NF_ACCEPT;
     }
@@ -72,7 +69,6 @@ unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook
         if (check_rule_for_packet(rule_table + ind, &packet_direction, &packet_src_ip, &packet_dst_ip, &packet_protocol, &packet_src_port, &packet_dst_port, &packet_ack)){
             // if we found a match we need to log the action and return the action.
             // when a rule match, the reason of the log will be the rule index.
-            printk("PACKETT FOUND AND MATCH THE %d RULE!\n", ind);
             add_log(&log_for_packet, ind, (rule_table + ind)->action);
             return (rule_table + ind)->action;
         }
@@ -183,21 +179,21 @@ int check_rule_for_packet(rule_t *rule, unsigned int *packet_direction, __be32 *
     // Check if the direction is the same
     if ((rule->direction != DIRECTION_ANY) && (*packet_direction != rule->direction))
     {
-      printk("dir\n");
+      
         return 0;
     }
 
     // Check if the src ip is the same
     if (!check_packet_ip(rule->src_ip, rule->src_prefix_mask, rule->src_prefix_size, *packet_src_ip))
     {
-        printk("src_ip\n");
+        
         return 0;
     }
 
     // Check if the dst ip is the same
     if (!check_packet_ip(rule->dst_ip, rule->dst_prefix_mask, rule->dst_prefix_size, *packet_dst_ip))
     {
-        printk("dst_ip\n");
+       
         return 0;
     }
 
@@ -205,7 +201,7 @@ int check_rule_for_packet(rule_t *rule, unsigned int *packet_direction, __be32 *
     // Check if the protocol is the same
     if (rule->protocol != PROT_ANY && rule->protocol != *packet_protocol)
     {
-      printk("proc\n");
+      
         return 0;
     }
 
@@ -223,12 +219,12 @@ int check_rule_for_packet(rule_t *rule, unsigned int *packet_direction, __be32 *
         // since the protocol is not ICMP we need to check the ports.
         if (!check_packet_port(rule->src_port, *packet_src_port))
         {
-            printk("src_port\n");
+           
             return 0;
         }
         if (!check_packet_port(rule->dst_port, *packet_dst_port))
         {
-            printk("dst_port\n");
+            
             return 0;
         }
         // if we are here it means that the ports are the same.
@@ -243,7 +239,7 @@ int check_rule_for_packet(rule_t *rule, unsigned int *packet_direction, __be32 *
             // If the protocol is TCP we need to check the ack.
             if (!check_packet_ack(rule->ack, *packet_ack))
             {
-                printk("ack\n");
+                
                 return 0;
             }
             else
@@ -259,7 +255,10 @@ int check_rule_for_packet(rule_t *rule, unsigned int *packet_direction, __be32 *
 
 // This function check if the ip of the packet is the same as the ip of the rule.
 int check_packet_ip(__be32 rule_ip, __be32 rule_prefix_mask, __u8 rule_prefix_size, __be32 packet_ip) {
-    //printk("%d %d\n",rule_ip, packet_ip );
+    if (rule_ip == 0)
+    {
+        return 1;
+    }
     __be32 rule_ip_network = rule_ip & rule_prefix_mask;
     __be32 packet_ip_network = packet_ip & rule_prefix_mask;
     return rule_ip_network == packet_ip_network;
@@ -300,16 +299,3 @@ void print_log(log_row_t *log){
 
 
 
-/*
-typedef struct {
-	unsigned long  	timestamp;     	// time of creation/update
-	unsigned char  	protocol;     	// values from: prot_t
-	unsigned char  	action;       	// valid values: NF_ACCEPT, NF_DROP
-	__be32   		src_ip;		  	// if you use this struct in userspace, change the type to unsigned int
-	__be32			dst_ip;		  	// if you use this struct in userspace, change the type to unsigned int
-	__be16 			src_port;	  	// if you use this struct in userspace, change the type to unsigned short
-	__be16 			dst_port;	  	// if you use this struct in userspace, change the type to unsigned short
-	reason_t     	reason;       	// rule#index, or values from: reason_t
-	unsigned int   	count;        	// counts this line's hits
-} log_row_t;
-*/
