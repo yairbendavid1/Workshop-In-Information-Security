@@ -1,7 +1,7 @@
 #include "fw.h"
-#include "rule.h"
-#include "log.h"
-#include "filter.h"
+#include "FwLogDevice.h"
+#include "FWRuleDevice.h"
+#include "PacketHandler.h"
 
 // This function is called when a packet is received at one of the hook points.
 unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook_state *state) {

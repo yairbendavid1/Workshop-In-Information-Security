@@ -3,7 +3,7 @@
 
 
 #include "fw.h"
-#include "rule.h"
+#include "PacketHandler.h"
 
 // This function will be assign to the nf_hook_ops struct, and will be called on each packet that is going through the network.
 unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook_state *state);

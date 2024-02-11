@@ -1,7 +1,7 @@
 #include "fw.h"
-#include "filter.h"
-#include "rule.h"
-#include "log.h"
+#include "PacketHandler.h"
+#include "FWRuleDevice.h"
+#include "FWLogDevice.h"
 
 
 // as reference for the klist i used this medium:

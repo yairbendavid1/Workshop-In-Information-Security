@@ -2,8 +2,8 @@
 #define _LOG_H_
 
 
-#include "user.h"
-#include "rule.h"
+#include "UserInterface.h"
+#include "UserLogManager.h"
 
 
 int clear_log(void);

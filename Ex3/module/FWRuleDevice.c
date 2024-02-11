@@ -1,7 +1,7 @@
 #include "fw.h"
-#include "rule.h"
-#include "log.h"
-#include "filter.h"
+#include "FWRuleDevice.h"
+#include "FWLogDevice.h"
+#include "PacketHandler.h"
 
 
 

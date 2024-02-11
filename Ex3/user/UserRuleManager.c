@@ -1,7 +1,6 @@
-#include "user.h"
-#include "log.h"
-#include "rule.h"
-
+#include "UserInterface.h"
+#include "UserLogManager.h"
+#include "UserRuleManager.h"
 
 void copy_to_buff_and_increase(char **buf_ptr, const void *var, size_t n){
     memcpy(*buf_ptr, var, n);

@@ -1,6 +1,6 @@
-#include "user.h"
-#include "log.h"
-#include "rule.h"
+#include "UserInterface.h"
+#include "UserLogManager.h"
+#include "UserRuleManager.h"
 
 #define RESET_LOG_PATH "/sys/class/fw/fw_log/reset"
 #define READ_LOG_PATH "/dev/fw_log"

@@ -2,8 +2,8 @@
 #define __rule_h
 
 
-#include "user.h"
-#include "log.h"
+#include "UserInterface.h"
+#include "UserLogManager.h"
 
 
 #define RULE_SYSFS_PATH "/sys/class/fw/rules/rules"

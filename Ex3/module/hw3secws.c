@@ -1,7 +1,7 @@
 #include "fw.h"
-#include "log.h"
-#include "rule.h"
-#include "filter.h"
+#include "FWLogDevice.h"
+#include "FWRuleDevice.h"
+#include "PacketHandler.h"
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Yair");

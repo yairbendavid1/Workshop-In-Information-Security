@@ -1,6 +1,6 @@
-#include "user.h"
-#include "log.h"
-#include "rule.h"
+#include "UserInterface.h"
+#include "UserLogManager.h"
+#include "UserRuleManager.h"
 
 int main(int argc, char *argv[]) {
     if (argc == 1){
