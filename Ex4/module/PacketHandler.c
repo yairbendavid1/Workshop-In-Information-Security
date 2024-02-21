@@ -212,7 +212,7 @@ int perform_statefull_inspection(const struct tcphdr *tcph, direction_t packet_d
         }
         if (tcph->fin && tcph->ack){
             state->status = A_FIN_B_FIN_ACK;
-            state->expected_direction = next_direction(packet_direction);
+            state->direction = next_direction(packet_direction);
             return 0;
         }
         return 1;

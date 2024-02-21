@@ -1,9 +1,10 @@
 #include "fw.h"
 #include "FWConnectionDevice.h"
+#include "FWRuleDevice.h"
 
 
 static LIST_HEAD(connection_table);
-__u32 connection_table_size = 0
+__u32 connection_table_size = 0;
 
 
 // This function check if the packet is a syn packet
@@ -25,7 +26,7 @@ direction_t next_direction(direction_t direction){
 }
 
 // This function will add a new connection to the connection table
-void *insert_connection(__be32 *src_ip, __be32 *dst_ip, __be16 *src_port, __be16 *dst_port, direction_t direction){
+void insert_connection(__be32 *src_ip, __be32 *dst_ip, __be16 *src_port, __be16 *dst_port, direction_t direction){
     connection_t *conn;
     conn = kmalloc(sizeof(connection_t), GFP_KERNEL);
     if (!conn){
@@ -107,26 +108,27 @@ connection_t *is_connection_exist(__be32 *src_ip, __be32 *dst_ip, __be16 *src_po
 // It should return the number of bytes written to the buffer.
 ssize_t show_connections(struct device *dev, struct device_attribute *attr, char *buf)
 {
-    int con_size;
-    int conn_entry_size = sizeof(__be32) + sizeof(__be32) + sizeof(__be16) + sizeof(__be16) + sizeof(conn->state.status) + sizeof(conn->state.direction);
     connection_t *connection;
+    int con_size;
+    int conn_entry_size = sizeof(__be32) + sizeof(__be32) + sizeof(__be16) + sizeof(__be16) + sizeof(connection->state.status) + sizeof(connection->state.direction);
+    
 
     copy_to_buff_and_increase(buf, &connection_table_size, sizeof(connection_table_size));
 
-    list_for_each_entry(conn, &ctable, list_node)
+    list_for_each_entry(connection, &connection_table, list_node)
     {
-        convert_connection_to_buff(conn, buf);
+        convert_connection_to_buff(connection, buf);
         buf += conn_entry_size;
     }
-    con_size = sizeof(connection_table_size) + connections_size * conn_entry_size;
+    con_size = sizeof(connection_table_size) + connection_table_size * conn_entry_size;
     return con_size;
 }
 
-convert_connection_to_buff(const connection_t *conn, char *buf){
-    copy_to_buff_and_increase(&buf, &(conn->internal_id.ip), sizeof(__be32));
-    copy_to_buff_and_increase(&buf, &(conn->internal_id.port), sizeof(__be16));
-    copy_to_buff_and_increase(&buf, &(conn->external_id.ip), sizeof(__be32));
-    copy_to_buff_and_increase(&buf, &(conn->external_id.port), sizeof(__be16));
+void convert_connection_to_buff(const connection_t *conn, char *buf){
+    copy_to_buff_and_increase(&buf, &(conn->intity.ip), sizeof(__be32));
+    copy_to_buff_and_increase(&buf, &(conn->intity.port), sizeof(__be16));
+    copy_to_buff_and_increase(&buf, &(conn->outity.ip), sizeof(__be32));
+    copy_to_buff_and_increase(&buf, &(conn->outity.port), sizeof(__be16));
     copy_to_buff_and_increase(&buf, &(conn->state.status), sizeof(conn->state.status));
     copy_to_buff_and_increase(&buf, &(conn->state.direction), sizeof(conn->state.direction));
 }
