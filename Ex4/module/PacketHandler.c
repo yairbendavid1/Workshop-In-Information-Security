@@ -57,60 +57,45 @@ unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook
     }
 
     // Stateful Part
+
     // If the packet is TCP and not a syn packet, we need to check if the packet is part of an existing connection.
     if (packet_protocol == PROT_TCP && !is_syn_packet){
         // if the packet is not a syn packet we need to check if the packet is part of an existing connection.
 
         // if the packet is not part of an existing connection we will drop it and log the action.
         conn = is_connection_exist(&packet_src_ip, &packet_dst_ip, &packet_src_port, &packet_dst_port, packet_direction);
-        if (conn != NULL){
-            add_log(&log_for_packet, REASON_NO_MATCHING_CONNECTION, NF_ACCEPT);
-            return NF_ACCEPT;
+        if (conn == NULL){
+            add_log(&log_for_packet, REASON_CONNECTION_NOT_EXIST, NF_DROP);
+            return NF_DROP;
         }
 
         // if the packet is part of an existing connection we will perform stateful inspection.
-        TCP_validity = perform_statefull_inspection(skb, state, conn, &log_for_packet);
+        
+        TCP_validity = perform_statefull_inspection(tcp_hdr(skb), packet_direction, &conn->state);
+
+
+        // if TCP_validity is 0 it means the packet is valid and we will accept it.
+        // if TCP_validity is 1 it means the packet is not valid and we will drop it.
+        // if TCP_validity is 2 it means the packet is valid and the connection is about to close so we will remove it from the connection table.
+        if(TCP_validity == 0){
+            add_log(&log_for_packet, REASON_CONNECTION_EXIST, NF_ACCEPT);
+            return NF_ACCEPT;
+        }
+        if(TCP_validity == 1){
+            add_log(&log_for_packet, REASON_INVALID_CONNECTION_STATE, NF_DROP);
+            return NF_DROP;
+        }
+        if(TCP_validity == 2){
+            finish_connection(conn);
+            add_log(&log_for_packet, REASON_VALID_CONNECTION_EXIST, NF_ACCEPT);
+            return NF_ACCEPT;
+        }
+        return NF_DROP;
+
         
     }
 
-
-    /* 
-        // Stateful inspection logic
-    if (packet.type == PACKET_TYPE_TCP && !is_syn)
-    {
-        connection_t *conn = find_connection(&packet);
-        int ret;
-
-        DINFO("http filter: src_ip=%d, src_port=%d, dst_ip=%d, dst_port=%d, syn=%d, ack=%d, fin=%d", packet.src_ip,
-              packet.src_port, packet.dst_ip, packet.dst_port, tcph->syn, tcph->ack, tcph->fin)
-
-        if (conn == NULL) // connection doesn't exist
-        {
-            log_action(&log_row, NF_DROP, REASON_TCP_STREAM_ENFORCE);
-            return NF_DROP;
-        }
-
-        DINFO("Before enforcing: %s, Expect %s", conn_status_str(conn->state.status), direction_str(conn->state.expected_direction));
-
-        ret = enforce_state(tcph, packet.direction, &conn->state);
-
-        DINFO("After enforcing: %s, Expect %s", conn_status_str(conn->state.status), direction_str(conn->state.expected_direction));
-
-        switch (ret)
-        {
-        case 2:
-            remove_connection(conn);
-        case 0:
-            log_action(&log_row, NF_ACCEPT, REASON_TCP_STREAM_ENFORCE);
-            return NF_ACCEPT;
-        case 1:
-            log_action(&log_row, NF_DROP, REASON_TCP_STREAM_ENFORCE);
-            return NF_DROP;
-        }
-    }
-    */
-
-
+    // if the packet is not TCP or it is a syn packet we will perform stateless inspection.
     // Stateless Part
 
 

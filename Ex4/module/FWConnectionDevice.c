@@ -2,7 +2,7 @@
 #include "FWConnectionDevice.h"
 
 
-LIST_HEAD(connection_table);
+static LIST_HEAD(connection_table);
 __u32 connection_table_size = 0
 
 
@@ -50,6 +50,12 @@ void *insert_connection(__be32 *src_ip, __be32 *dst_ip, __be16 *src_port, __be16
 
 }
 
+// This function will remove a connection from the connection table
+void finish_connection(connection_t *conn){
+    list_del(&conn->node);
+    kfree(conn);
+    connection_table_size--;
+}
 
 // This function will set the in and out entities according to the direction
 // if the direction is in, the in entity will be the destination and the out entity will be the source
@@ -101,34 +107,26 @@ connection_t *is_connection_exist(__be32 *src_ip, __be32 *dst_ip, __be16 *src_po
 // It should return the number of bytes written to the buffer.
 ssize_t show_connections(struct device *dev, struct device_attribute *attr, char *buf)
 {
-    connection_t *conn;
-    ssize_t csize;
+    int con_size;
+    int conn_entry_size = sizeof(__be32) + sizeof(__be32) + sizeof(__be16) + sizeof(__be16) + sizeof(conn->state);
+    connection_t *connection;
 
-    VAR2BUF(connections_amount);
+    copy_to_buff_and_increase(buf, &connection_table_size, sizeof(connection_table_size));
 
     list_for_each_entry(conn, &ctable, list_node)
     {
-        conn2buf(conn, buf);
-        buf += CONN_BUF_SIZE;
+        convert_connection_to_buff(conn, buf);
+        buf += conn_entry_size;
     }
-    con_size = sizeof(connections_size) + connections_size * CONN_BUF_SIZE;
-    buf += con_size;
+    con_size = sizeof(connection_table_size) + connections_size * conn_entry_size;
     return con_size;
 }
 
-
-
-ssize_t ctable2buf(char *buf)
-{
-    connection_t *conn;
-
-    VAR2BUF(connections_amount);
-
-    list_for_each_entry(conn, &ctable, list_node)
-    {
-        conn2buf(conn, buf);
-        buf += CONN_BUF_SIZE;
-    }
-
-    return CAMOUNT_SIZE + connections_amount * CONN_BUF_SIZE;
+convert_connection_to_buff(const connection_t *conn, char *buf){
+    copy_to_buff_and_increase(&buf, &(conn->internal_id.ip), sizeof(__be32));
+    copy_to_buff_and_increase(&buf, &(conn->internal_id.port), sizeof(__be16));
+    copy_to_buff_and_increase(&buf, &(conn->external_id.ip), sizeof(__be32));
+    copy_to_buff_and_increase(&buf, &(conn->external_id.port), sizeof(__be16));
+    copy_to_buff_and_increase(&buf, &(conn->state), sizeof(conn->state));
 }
+

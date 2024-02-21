@@ -7,6 +7,7 @@
 
 // This function will be assign to the nf_hook_ops struct, and will be called on each packet that is going through the network.
 unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook_state *state);
+int perform_statefull_inspection(const struct tcphdr *tcph, direction_t packet_direction, tcp_state_t *state);
 
 // functions for extracting the packet fields
 void set_direction(struct sk_buff *skb, direction_t *packet_direction, const struct nf_hook_state *state);
@@ -23,6 +24,8 @@ int check_packet_ip(__be32 rule_ip, __be32 rule_prefix_mask, __u8 rule_prefix_si
 int check_packet_ack(ack_t packet_ack, ack_t rule_ack);
 
 void print_log(log_row_t *log);
+
+
 
 
 #endif

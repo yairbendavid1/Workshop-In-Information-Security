@@ -17,7 +17,7 @@ typedef struct{
     log_row_t log_data;
 } log_node_t;
 
-LIST_HEAD(log_head); // This macro defines and initializes a list_head object named log_head
+static LIST_HEAD(log_head); // This macro defines and initializes a list_head object named log_head
 static __u32 log_size = 0; // The amount of log entries, will be to tell the user how many logs we have in the log list.
 static __u8 sent_log_size = 0; // A flag to indicate if the log size was written to the user file buffer yet.
 log_node_t *current_log_on_read; // This will be used to keep track of the current log on read, so we can continue from the last log on the next read.

@@ -1,5 +1,5 @@
 obj-m := firewall.o
-firewall-objs := FWRuleDevice.o hw3secws.o FWLogDevice.o PacketHandler.o
+firewall-objs := FWRuleDevice.o hw4secws.o FWLogDevice.o PacketHandler.o FWConnectionDevice.o
 
 all:
 	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules
