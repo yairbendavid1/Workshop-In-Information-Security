@@ -113,9 +113,9 @@ ssize_t show_connections(struct device *dev, struct device_attribute *attr, char
     int conn_entry_size = sizeof(__be32) + sizeof(__be32) + sizeof(__be16) + sizeof(__be16) + sizeof(connection->state.status) + sizeof(connection->state.direction);
     
 
-    copy_to_buff_and_increase(buf, &connection_table_size, sizeof(connection_table_size));
+    copy_to_buff_and_increase(&buf, &connection_table_size, sizeof(connection_table_size));
 
-    list_for_each_entry(connection, &connection_table, list_node)
+    list_for_each_entry(connection, &connection_table, node)
     {
         convert_connection_to_buff(connection, buf);
         buf += conn_entry_size;
