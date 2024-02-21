@@ -24,6 +24,7 @@ unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook
     unsigned int is_syn_packet = check_for_syn_packet(skb, state); // bit that indicate if the packet is a syn packet
     connection_t *conn;
     __u8 TCP_validity;
+    rule_t *rule_table; 
 
     // Now we will parse the packet and fill the fields with the values from the packet.
     set_direction(skb, &packet_direction, state);
@@ -65,7 +66,7 @@ unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook
         // if the packet is not part of an existing connection we will drop it and log the action.
         conn = is_connection_exist(&packet_src_ip, &packet_dst_ip, &packet_src_port, &packet_dst_port, packet_direction);
         if (conn == NULL){
-            add_log(&log_for_packet, REASON_CONNECTION_NOT_EXIST, NF_DROP);
+            add_log(&log_for_packet, REASON_NO_MATCHING_CONNECTION, NF_DROP);
             return NF_DROP;
         }
 
@@ -78,7 +79,7 @@ unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook
         // if TCP_validity is 1 it means the packet is not valid and we will drop it.
         // if TCP_validity is 2 it means the packet is valid and the connection is about to close so we will remove it from the connection table.
         if(TCP_validity == 0){
-            add_log(&log_for_packet, REASON_CONNECTION_EXIST, NF_ACCEPT);
+            add_log(&log_for_packet, REASON_VALID_CONNECTION_EXIST, NF_ACCEPT);
             return NF_ACCEPT;
         }
         if(TCP_validity == 1){
@@ -111,7 +112,7 @@ unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook
     // We need to work based on the first rule matched to the packet.
     // if no rule is matched we need to drop the packet.
 
-    rule_t *rule_table = get_rule_table();
+    rule_table = get_rule_table();
     int ind;
     for(ind = 0; ind < get_rules_amount(); ind++){
         if (check_rule_for_packet(rule_table + ind, &packet_direction, &packet_src_ip, &packet_dst_ip, &packet_protocol, &packet_src_port, &packet_dst_port, &packet_ack)){
@@ -172,7 +173,7 @@ int perform_statefull_inspection(const struct tcphdr *tcph, direction_t packet_d
     if (status == SYN_ACK){ 
         if (tcph->ack){
             state->status = ESTABLISHED;
-            state->expected_direction = DIRECTION_ANY;
+            state->direction = DIRECTION_ANY;
             return 0;
         }
         return 1;
@@ -184,7 +185,7 @@ int perform_statefull_inspection(const struct tcphdr *tcph, direction_t packet_d
     if (status == ESTABLISHED){
         if (tcph->fin){
             state->status = A_SENT_FIN;
-            state->expected_direction = next_direction(packet_direction);
+            state->direction = next_direction(packet_direction);
             return 0;
         }
         return 0;
@@ -201,12 +202,12 @@ int perform_statefull_inspection(const struct tcphdr *tcph, direction_t packet_d
     if (status == A_SENT_FIN){
         if (tcph->ack){
             state->status = A_FIN_B_ACK;
-            state->expected_direction = packet_direction;
+            state->direction = packet_direction;
             return 0;
         }
         if (tcph->fin){
             state->status = A_FIN_B_FIN;
-            state->expected_direction = DIRECTION_ANY;
+            state->direction = DIRECTION_ANY;
             return 0;
         }
         if (tcph->fin && tcph->ack){
@@ -223,7 +224,7 @@ int perform_statefull_inspection(const struct tcphdr *tcph, direction_t packet_d
     if (status == A_FIN_B_ACK){
         if (tcph->fin){
             state->status = A_FIN_B_FIN_ACK;
-            state->expected_direction = DIRECTION_ANY;
+            state->direction = DIRECTION_ANY;
             return 0;
         }
         return 1;
@@ -243,7 +244,7 @@ int perform_statefull_inspection(const struct tcphdr *tcph, direction_t packet_d
     if (status == A_FIN_B_FIN){
         if (tcph->ack){
             state->status = A_FIN_B_FIN_ACK;
-            state->expected_direction = next_direction(packet_direction);
+            state->direction = next_direction(packet_direction);
             return 0;
         }
         return 1;

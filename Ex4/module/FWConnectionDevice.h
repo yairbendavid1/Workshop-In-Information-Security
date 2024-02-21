@@ -1,15 +1,9 @@
 #ifndef _FW_CONNECTION_DEVICE_H
 #define _FW_CONNECTION_DEVICE_H 
 
-ssize_t show_connections(struct device *dev, struct device_attribute *attr, char *buf);
-unsigned int check_for_syn_packet(struct sk_buff *skb, const struct nf_hook_state *state);
-direction_t next_direction(direction_t direction);
-void *insert_connection(__be32 *src_ip, __be32 *dst_ip, __be16 *src_port, __be16 *dst_port, direction_t direction);
-void finish_connection(connection_t *conn);
-void set_entities(__be32 *src_ip, __be16 *src_port, __be32 *dst_ip, __be16 *dst_port, direction_t direction, entity_t *int_entity, entity_t *out_entity);
-int compare_entities(entity_t *entity1, entity_t *entity2);
-connection_t *is_connection_exist(__be32 *src_ip, __be32 *dst_ip, __be16 *src_port, __be16 *dst_port, direction_t direction);
-void convert_connection_to_buff(connection_t *conn, char *buf);
+#include "fw.h"
+
+
 // Structure for a connection, used in the connection table which is a linked list.
 
 typedef struct
@@ -58,6 +52,17 @@ typedef struct
     struct list_head node; // the node in the linked list - used to iterate over the list
 } connection_t; 
 
+
+
+ssize_t show_connections(struct device *dev, struct device_attribute *attr, char *buf);
+unsigned int check_for_syn_packet(struct sk_buff *skb, const struct nf_hook_state *state);
+direction_t next_direction(direction_t direction);
+void *insert_connection(__be32 *src_ip, __be32 *dst_ip, __be16 *src_port, __be16 *dst_port, direction_t direction);
+void finish_connection(connection_t *conn);
+void set_entities(__be32 *src_ip, __be16 *src_port, __be32 *dst_ip, __be16 *dst_port, direction_t direction, entity_t *int_entity, entity_t *out_entity);
+int compare_entities(entity_t *entity1, entity_t *entity2);
+connection_t *is_connection_exist(__be32 *src_ip, __be32 *dst_ip, __be16 *src_port, __be16 *dst_port, direction_t direction);
+void convert_connection_to_buff(connection_t *conn, char *buf);
 
 
 #endif // _FW_CONNECTION_DEVICE_H

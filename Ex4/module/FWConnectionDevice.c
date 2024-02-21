@@ -108,7 +108,7 @@ connection_t *is_connection_exist(__be32 *src_ip, __be32 *dst_ip, __be16 *src_po
 ssize_t show_connections(struct device *dev, struct device_attribute *attr, char *buf)
 {
     int con_size;
-    int conn_entry_size = sizeof(__be32) + sizeof(__be32) + sizeof(__be16) + sizeof(__be16) + sizeof(conn->state);
+    int conn_entry_size = sizeof(__be32) + sizeof(__be32) + sizeof(__be16) + sizeof(__be16) + sizeof(conn->state.status) + sizeof(conn->state.direction);
     connection_t *connection;
 
     copy_to_buff_and_increase(buf, &connection_table_size, sizeof(connection_table_size));
@@ -127,6 +127,7 @@ convert_connection_to_buff(const connection_t *conn, char *buf){
     copy_to_buff_and_increase(&buf, &(conn->internal_id.port), sizeof(__be16));
     copy_to_buff_and_increase(&buf, &(conn->external_id.ip), sizeof(__be32));
     copy_to_buff_and_increase(&buf, &(conn->external_id.port), sizeof(__be16));
-    copy_to_buff_and_increase(&buf, &(conn->state), sizeof(conn->state));
+    copy_to_buff_and_increase(&buf, &(conn->state.status), sizeof(conn->state.status));
+    copy_to_buff_and_increase(&buf, &(conn->state.direction), sizeof(conn->state.direction));
 }
 

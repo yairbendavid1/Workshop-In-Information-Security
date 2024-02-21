@@ -2,7 +2,7 @@
 #include "FWLogDevice.h"
 #include "FWRuleDevice.h"
 #include "PacketHandler.h"
-#inlcude "FWConnectionDevice.h"
+#include "FWConnectionDevice.h"
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Yair");
@@ -156,13 +156,13 @@ static int __init my_module_init_function(void){
     }
 
     // create sysfs device - acced from sysfs
-    conn_dev = device_create(sysfs_class, NULL, MKDEV(connections_major_number, 0), NULL, "conns");
-    if (IS_ERR(conn_dev))
+    connections_device = device_create(sysfs_class, NULL, MKDEV(connections_major_number, 0), NULL, "conns");
+    if (IS_ERR(connections_device))
     {
         goto connections_device_creation_failed;
     }
 
-    if (device_create_file(conn_dev, (const struct device_attribute *)&dev_attr_conns.attr))
+    if (device_create_file(connections_device, (const struct device_attribute *)&dev_attr_conns.attr))
     {
         goto connections_file_creation_failed;
     }
@@ -197,7 +197,7 @@ registeration_pre_failed:
 connections_file_creation_failed:
     device_destroy(sysfs_class, MKDEV(connections_major_number, 0));
 connections_device_creation_failed:
-    unregister_chrdev(connections_major_number, MAJOR_NAME_CONN);
+    unregister_chrdev(connections_major_number, "fw_loggg");
 connections_char_device_creation_failed:
     device_remove_file(rules_device, (const struct device_attribute *)&dev_attr_rules.attr);
 rules_file_creation_failed:
@@ -221,7 +221,7 @@ static void __exit my_module_exit_function(void){
     nf_unregister_net_hook(&init_net, &prerouting_hook_point_op);
     device_remove_file(connections_device, (const struct device_attribute *)&dev_attr_conns.attr);
     device_destroy(sysfs_class, MKDEV(connections_major_number, 0));
-    unregister_chrdev(connections_major_number, MAJOR_NAME_CONN);
+    unregister_chrdev(connections_major_number, "fw_loggg");
     device_remove_file(log_device, (const struct device_attribute *)&dev_attr_reset.attr);
     device_destroy(sysfs_class, MKDEV(log_major, 0));
     unregister_chrdev(log_major, "fw_logg");
