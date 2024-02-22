@@ -24,7 +24,7 @@ unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook
     unsigned int is_syn_packet = check_for_syn_packet(skb, state); // bit that indicate if the packet is a syn packet
     connection_t *conn;
     __u8 TCP_validity;
-    rule_t *rule_table; 
+    rule_t *rule_table;
     int special;
 
     // Now we will parse the packet and fill the fields with the values from the packet.
@@ -52,12 +52,10 @@ unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook
         return NF_DROP;
     }
 
-    if (state->hook == NF_INET_LOCAL_OUT)
-        {
-            return NF_ACCEPT;
-        }
     // Stateful Part
-
+    if (packet_protocol == PROT_TCP && is_syn_packet){
+      printk("need to check conn");
+    }
     // If the packet is TCP and not a syn packet, we need to check if the packet is part of an existing connection.
     if (packet_protocol == PROT_TCP && !is_syn_packet){
         // if the packet is not a syn packet we need to check if the packet is part of an existing connection.
@@ -70,7 +68,7 @@ unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook
         }
 
         // if the packet is part of an existing connection we will perform stateful inspection.
-        
+
         TCP_validity = perform_statefull_inspection(tcp_hdr(skb), packet_direction, &conn->state);
 
 
@@ -91,9 +89,8 @@ unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook
             return NF_ACCEPT;
         }
         return NF_DROP;
-        
+
     }
-    return NF_ACCEPT;
     // if the packet is not TCP or it is a syn packet we will perform stateless inspection.
     // Stateless Part
 
@@ -101,7 +98,7 @@ unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook
     // If the rule table is not valid, then accept automatically (and log the action).
     if (is_valid_table() == 0)
     {
-        
+
         add_log(&log_for_packet, REASON_FW_INACTIVE, NF_ACCEPT);
         return NF_ACCEPT;
     }
@@ -158,7 +155,7 @@ int check_for_special_cases(__be32 *packet_src_ip, __be32 *packet_dst_ip, __be16
     }
 
     // if the packet is not between the internal and external networks we will drop it and log the action.
-    if (packet_direction == DIRECTION_NONE){
+    if (*packet_direction == DIRECTION_NONE){
         return 1;
     }
 
@@ -187,22 +184,22 @@ int perform_statefull_inspection(const struct tcphdr *tcph, direction_t packet_d
     // If we are here it means that the packet is in the right direction!
     // Now its time for the state machine.
     // Further information about the state machine can be found in the documentation.
-    // The state machine is based on the only options a packet can do in a TCP connection while on specific state. 
+    // The state machine is based on the only options a packet can do in a TCP connection while on specific state.
 
     // if the state is SYN, it means we expect a syn-ack packet from the other side.
-    if (status == SYN){ 
+    if (status == SYN){
         if (tcph->syn && tcph->ack){
-            state->status = SYN_ACK; 
+            state->status = SYN_ACK;
             state->direction = next_direction(packet_direction);
             return 0;
         }
         return 1;
-    
+
     }
 
     // if the state is SYN_ACK, it means we expect an ack packet to establish the connection.
     // since the connection is just established we don't have a specific direction to expect.
-    if (status == SYN_ACK){ 
+    if (status == SYN_ACK){
         if (tcph->ack){
             state->status = ESTABLISHED;
             state->direction = DIRECTION_ANY;
@@ -299,17 +296,19 @@ void set_direction(struct sk_buff *skb, direction_t *packet_direction, const str
     // *packet_direction = 0;
 
     char *net_in = state->in->name;
-    char *net_out = state->out->name; 
-    
+    char *net_out = state->out->name;
+
     if ((net_out != NULL && strcmp(net_out, EXT_NET_DEVICE_NAME) == 0) || (net_in != NULL && strcmp(net_in, INT_NET_DEVICE_NAME) == 0))
     {
-        return DIRECTION_OUT; // Coming from inside to outside = direction out
+        *packet_direction = DIRECTION_OUT; // Coming from inside to outside = direction out
+        return;
     }
     if ((net_out != NULL && strcmp(net_out, INT_NET_DEVICE_NAME) == 0) || (net_in != NULL && strcmp(net_in, EXT_NET_DEVICE_NAME) == 0))
     {
-        return DIRECTION_IN; // Coming from outside to inside = direction in
+        *packet_direction = DIRECTION_IN; // Coming from outside to inside = direction in
+        return;
     }
-    return DIRECTION_NONE;
+    *packet_direction = DIRECTION_NONE;
 }
 
 
@@ -396,21 +395,21 @@ int check_rule_for_packet(rule_t *rule, unsigned int *packet_direction, __be32 *
     // Check if the direction is the same
     if ((rule->direction != DIRECTION_ANY) && (*packet_direction != rule->direction))
     {
-      
+
         return 0;
     }
 
     // Check if the src ip is the same
     if (!check_packet_ip(rule->src_ip, rule->src_prefix_mask, rule->src_prefix_size, *packet_src_ip))
     {
-        
+
         return 0;
     }
 
     // Check if the dst ip is the same
     if (!check_packet_ip(rule->dst_ip, rule->dst_prefix_mask, rule->dst_prefix_size, *packet_dst_ip))
     {
-       
+
         return 0;
     }
 
@@ -418,7 +417,7 @@ int check_rule_for_packet(rule_t *rule, unsigned int *packet_direction, __be32 *
     // Check if the protocol is the same
     if (rule->protocol != PROT_ANY && rule->protocol != *packet_protocol)
     {
-      
+
         return 0;
     }
 
@@ -436,12 +435,12 @@ int check_rule_for_packet(rule_t *rule, unsigned int *packet_direction, __be32 *
         // since the protocol is not ICMP we need to check the ports.
         if (!check_packet_port(rule->src_port, *packet_src_port))
         {
-           
+
             return 0;
         }
         if (!check_packet_port(rule->dst_port, *packet_dst_port))
         {
-            
+
             return 0;
         }
         // if we are here it means that the ports are the same.
@@ -456,7 +455,7 @@ int check_rule_for_packet(rule_t *rule, unsigned int *packet_direction, __be32 *
             // If the protocol is TCP we need to check the ack.
             if (!check_packet_ack(rule->ack, *packet_ack))
             {
-                
+
                 return 0;
             }
             else
@@ -513,6 +512,3 @@ void print_log(log_row_t *log){
     printk("reason: %d\n", log->reason);
     printk("count: %d\n", log->count);
 }
-
-
-
