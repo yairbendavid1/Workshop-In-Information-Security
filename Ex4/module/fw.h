@@ -63,6 +63,7 @@ typedef enum {
 } ack_t;
 
 typedef enum {
+	DIRECTION_NONE 	= 0x00,
 	DIRECTION_IN 	= 0x01,
 	DIRECTION_OUT 	= 0x02,
 	DIRECTION_ANY 	= DIRECTION_IN | DIRECTION_OUT,

@@ -52,7 +52,7 @@ unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook
         return NF_DROP;
     }
 
-    if (packet.hooknum == NF_INET_LOCAL_OUT)
+    if (state->hook == NF_INET_LOCAL_OUT)
         {
             return NF_ACCEPT;
         }
@@ -60,42 +60,40 @@ unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook
 
     // If the packet is TCP and not a syn packet, we need to check if the packet is part of an existing connection.
     if (packet_protocol == PROT_TCP && !is_syn_packet){
-        // // if the packet is not a syn packet we need to check if the packet is part of an existing connection.
+        // if the packet is not a syn packet we need to check if the packet is part of an existing connection.
 
-        // // if the packet is not part of an existing connection we will drop it and log the action.
-        // conn = is_connection_exist(&packet_src_ip, &packet_dst_ip, &packet_src_port, &packet_dst_port, packet_direction);
-        // if (conn == NULL){
-        //     add_log(&log_for_packet, REASON_NO_MATCHING_CONNECTION, NF_DROP);
-        //     return NF_DROP;
-        // }
+        // if the packet is not part of an existing connection we will drop it and log the action.
+        conn = is_connection_exist(&packet_src_ip, &packet_dst_ip, &packet_src_port, &packet_dst_port, packet_direction);
+        if (conn == NULL){
+            add_log(&log_for_packet, REASON_NO_MATCHING_CONNECTION, NF_DROP);
+            return NF_DROP;
+        }
 
-        // // if the packet is part of an existing connection we will perform stateful inspection.
+        // if the packet is part of an existing connection we will perform stateful inspection.
         
-        // TCP_validity = perform_statefull_inspection(tcp_hdr(skb), packet_direction, &conn->state);
+        TCP_validity = perform_statefull_inspection(tcp_hdr(skb), packet_direction, &conn->state);
 
 
-        // // if TCP_validity is 0 it means the packet is valid and we will accept it.
-        // // if TCP_validity is 1 it means the packet is not valid and we will drop it.
-        // // if TCP_validity is 2 it means the packet is valid and the connection is about to close so we will remove it from the connection table.
-        // if(TCP_validity == 0){
-        //     add_log(&log_for_packet, REASON_VALID_CONNECTION_EXIST, NF_ACCEPT);
-        //     return NF_ACCEPT;
-        // }
-        // if(TCP_validity == 1){
-        //     add_log(&log_for_packet, REASON_INVALID_CONNECTION_STATE, NF_DROP);
-        //     return NF_DROP;
-        // }
-        // if(TCP_validity == 2){
-        //     finish_connection(conn);
-        //     add_log(&log_for_packet, REASON_VALID_CONNECTION_EXIST, NF_ACCEPT);
-        //     return NF_ACCEPT;
-        // }
-        // return NF_DROP;
-        return NF_ACCEPT;
-
+        // if TCP_validity is 0 it means the packet is valid and we will accept it.
+        // if TCP_validity is 1 it means the packet is not valid and we will drop it.
+        // if TCP_validity is 2 it means the packet is valid and the connection is about to close so we will remove it from the connection table.
+        if(TCP_validity == 0){
+            add_log(&log_for_packet, REASON_VALID_CONNECTION_EXIST, NF_ACCEPT);
+            return NF_ACCEPT;
+        }
+        if(TCP_validity == 1){
+            add_log(&log_for_packet, REASON_INVALID_CONNECTION_STATE, NF_DROP);
+            return NF_DROP;
+        }
+        if(TCP_validity == 2){
+            finish_connection(conn);
+            add_log(&log_for_packet, REASON_VALID_CONNECTION_EXIST, NF_ACCEPT);
+            return NF_ACCEPT;
+        }
+        return NF_DROP;
         
     }
-
+    return NF_ACCEPT;
     // if the packet is not TCP or it is a syn packet we will perform stateless inspection.
     // Stateless Part
 
@@ -160,7 +158,7 @@ int check_for_special_cases(__be32 *packet_src_ip, __be32 *packet_dst_ip, __be16
     }
 
     // if the packet is not between the internal and external networks we will drop it and log the action.
-    if (packet_direction == DIRECTION_ANY){
+    if (packet_direction == DIRECTION_NONE){
         return 1;
     }
 
@@ -288,17 +286,30 @@ int perform_statefull_inspection(const struct tcphdr *tcph, direction_t packet_d
 
 // This function get a packet and extract the direction from it and store it in the packet_direction.
 void set_direction(struct sk_buff *skb, direction_t *packet_direction, const struct nf_hook_state *state) {
-    char * in_device_name = state->in->name;
-    char * out_device_name = state->out->name;
-    if(strcmp(in_device_name, IN_NET_DEVICE_NAME) == 0 && strcmp(out_device_name, OUT_NET_DEVICE_NAME) == 0) { // if the packet is coming from inside to outside
-        *packet_direction = DIRECTION_OUT;
-        return;
-      }
-    if(strcmp(in_device_name, OUT_NET_DEVICE_NAME) == 0 && strcmp(out_device_name, IN_NET_DEVICE_NAME) == 0) { // if the packet is coming from outside to inside
-        *packet_direction = DIRECTION_IN;
-        return;
+    // char * in_device_name = state->in->name;
+    // char * out_device_name = state->out->name;
+    // if(strcmp(in_device_name, IN_NET_DEVICE_NAME) == 0 && strcmp(out_device_name, OUT_NET_DEVICE_NAME) == 0) { // if the packet is coming from inside to outside
+    //     *packet_direction = DIRECTION_OUT;
+    //     return;
+    //   }
+    // if(strcmp(in_device_name, OUT_NET_DEVICE_NAME) == 0 && strcmp(out_device_name, IN_NET_DEVICE_NAME) == 0) { // if the packet is coming from outside to inside
+    //     *packet_direction = DIRECTION_IN;
+    //     return;
+    // }
+    // *packet_direction = 0;
+
+    char *net_in = state->in->name;
+    char *net_out = state->out->name;
+    
+    if ((net_out != NULL && strcmp(net_out, EXT_NET_DEVICE_NAME) == 0) || (net_in != NULL && strcmp(net_in, INT_NET_DEVICE_NAME) == 0))
+    {
+        return DIRECTION_OUT; // Coming from inside to outside = direction out
     }
-    *packet_direction = 0;
+    if ((net_out != NULL && strcmp(net_out, INT_NET_DEVICE_NAME) == 0) || (net_in != NULL && strcmp(net_in, EXT_NET_DEVICE_NAME) == 0))
+    {
+        return DIRECTION_IN; // Coming from outside to inside = direction in
+    }
+    return DIRECTION_NONE;
 }
 
 
