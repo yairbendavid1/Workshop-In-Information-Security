@@ -31,7 +31,7 @@ int show_conns(){
     char con_string[256] = "";
 
     // Before we print the logs, we need to print the titles of the columns of the log table.
-    printf("in_entity_ip\tin_entity_port\tout_entity_ip\tout_entity_port\tnext_directrion\t\tstatus\n");
+    printf("in_entity_ip\tin_entity_port\tout_entity_ip\tout_entity_port\tnext_directrion\tstatus\n");
 
     // Now we will read the logs from the log device and print them to the user
     for (int i = 0; i < size; i++)
