@@ -52,10 +52,10 @@ unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook
         return NF_DROP;
     }
 
+
+    print_packet(&packet_src_ip, &packet_dst_ip, &packet_src_port, &packet_dst_port, &packet_protocol, &packet_ack, &packet_direction);
     // Stateful Part
-    if (packet_protocol == PROT_TCP && is_syn_packet){
-      printk("need to check conn");
-    }
+    
     // If the packet is TCP and not a syn packet, we need to check if the packet is part of an existing connection.
     if (packet_protocol == PROT_TCP && !is_syn_packet){
         // if the packet is not a syn packet we need to check if the packet is part of an existing connection.
@@ -116,6 +116,7 @@ unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook
 
             // if the packet is a syn packet we need to add a new connection to the connection table.
             if (packet_protocol == PROT_TCP && is_syn_packet){
+                printk("inserting connection");
                 insert_connection(&packet_src_ip, &packet_dst_ip, &packet_src_port, &packet_dst_port, packet_direction);
             }
             add_log(&log_for_packet, ind, (rule_table + ind)->action);
@@ -511,4 +512,14 @@ void print_log(log_row_t *log){
     printk("dst_port: %d\n", log->dst_port);
     printk("reason: %d\n", log->reason);
     printk("count: %d\n", log->count);
+}
+
+void print_packet(__be32 *src_ip, __be32 *dst_ip, __be16 *src_port, __be16 *dst_port, __u8 *protocol, ack_t *ack, direction_t *direction){
+    printk("src_ip: %d\t", *src_ip);
+    printk("dst_ip: %d\t", *dst_ip);
+    printk("src_port: %d\t", *src_port);
+    printk("dst_port: %d\t", *dst_port);
+    printk("protocol: %d\t", *protocol);
+    printk("ack: %d\t", *ack);
+    printk("direction: %d\n", *direction);
 }
