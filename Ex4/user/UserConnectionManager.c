@@ -95,6 +95,7 @@ void con_convert_ip_to_string(uint32_t ip, char *con_string)
     struct in_addr ip_addr;
     ip_addr.s_addr = ip;
     strcat(con_string, inet_ntoa(ip_addr));
+    printf("at conv: ip: %s\n", inet_ntoa(ip_addr));
     strcat(con_string, "		");
 }
 
@@ -118,12 +119,13 @@ void con_convert_direction_to_string(direction_t direction, char *con_string)
     if (direction == DIRECTION_ANY){
       sprintf(direction_str, "any");
     }
-    else if (direction == DIRECTION_IN){
+    if (direction == DIRECTION_IN){
       sprintf(direction_str, "in");
     }
-    else{
+    if (direction == DIRECTION_OUT){
       sprintf(direction_str, "out");
     }
+    strcat(con_string, direction_str);
     strcat(con_string, "		");
 }
 
