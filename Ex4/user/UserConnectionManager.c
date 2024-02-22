@@ -59,34 +59,26 @@ int show_conns(){
 void convert_buff_to_con(connection_t *con, char *buf){
     printf("converting buffer to connection\n");
     copy_from_buff_and_increase(&buf, &con->int_ip, sizeof(con->int_ip));
-    printf("int ip: %d\n", con->int_ip);
     copy_from_buff_and_increase(&buf, &con->int_port, sizeof(con->int_port));
-    printf("int port: %d\n", con->int_port);
     copy_from_buff_and_increase(&buf, &con->out_ip, sizeof(con->out_ip));
-    printf("out ip: %d\n", con->out_ip);
     copy_from_buff_and_increase(&buf, &con->out_port, sizeof(con->out_port));
-    printf("out port: %d\n", con->out_port);
     copy_from_buff_and_increase(&buf, &con->status, sizeof(con->status));
-    printf("status: %d\n", con->status);
     copy_from_buff_and_increase(&buf, &con->direction, sizeof(con->direction));
-    printf("direction: %d\n", con->direction);
 }
 
 // This function will convert a connection struct to a string
 void convert_con_to_string(connection_t *con, char *con_string){
     printf("converting connection to string\n");
+    printf("at conv: con_string: %s\n", con_string);
     con_convert_ip_to_string(con->int_ip, con_string);
-    printf("int ip: %d\n", con->int_ip);
+    printf("at conv: con_string: %s\n", con_string);
     con_convert_port_to_string(con->int_port, con_string);
-    printf("int port: %d\n", con->int_port);
+    printf("at conv: con_string: %s\n", con_string);
     con_convert_ip_to_string(con->out_ip, con_string);
-    printf("out ip: %d\n", con->out_ip);
     con_convert_port_to_string(con->out_port, con_string);
-    printf("out port: %d\n", con->out_port);
     con_convert_direction_to_string(con->direction, con_string);
-    printf("direction: %d\n", con->direction);
     con_convert_status_to_string(con->status, con_string);
-    printf("status: %d\n", con->status);
+    printf("at conv: con_string: %s\n", con_string);
 }
 
 
