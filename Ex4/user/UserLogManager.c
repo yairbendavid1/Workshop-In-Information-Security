@@ -230,7 +230,7 @@ void log_convert_reason_to_string(int reason, char *log_string)
     if (reason == REASON_NO_MATCHING_CONNECTION)
     {
         char *reason_str;
-        reason_str = "NO_MATCHING_CONNECTION";
+        reason_str = "No Connection Found"; 
         strcat(log_string, reason_str);
         strcat(log_string, "		");
         return;
@@ -238,7 +238,7 @@ void log_convert_reason_to_string(int reason, char *log_string)
     if (reason == REASON_INVALID_CONNECTION_STATE)
     {
         char *reason_str;
-        reason_str = "INVALID_CONNECTION_STATE";
+        reason_str = "Protocol Violation";
         strcat(log_string, reason_str);
         strcat(log_string, "		");
         return;
@@ -246,7 +246,7 @@ void log_convert_reason_to_string(int reason, char *log_string)
     if (reason == REASON_VALID_CONNECTION_EXIST)
     {
         char *reason_str;
-        reason_str = "VALID_CONNECTION_EXIST";
+        reason_str = "Connection Exist";
         strcat(log_string, reason_str);
         strcat(log_string, "		");
         return;

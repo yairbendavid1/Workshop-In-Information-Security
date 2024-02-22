@@ -53,7 +53,7 @@ unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook
     }
 
 
-    print_packet(&packet_src_ip, &packet_dst_ip, &packet_src_port, &packet_dst_port, &packet_protocol, &packet_ack, &packet_direction, is_syn_packet);
+    //print_packet(&packet_src_ip, &packet_dst_ip, &packet_src_port, &packet_dst_port, &packet_protocol, &packet_ack, &packet_direction, is_syn_packet);
     // Stateful Part
     
     // If the packet is TCP and not a syn packet, we need to check if the packet is part of an existing connection.
@@ -70,7 +70,7 @@ unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook
         // if the packet is part of an existing connection we will perform stateful inspection.
 
         TCP_validity = perform_statefull_inspection(tcp_hdr(skb), packet_direction, &conn->state);
-        printk("TCP_validity: %d\n", TCP_validity);
+        //printk("TCP_validity: %d\n", TCP_validity);
 
         // if TCP_validity is 0 it means the packet is valid and we will accept it.
         // if TCP_validity is 1 it means the packet is not valid and we will drop it.
@@ -190,7 +190,7 @@ int perform_statefull_inspection(const struct tcphdr *tcph, direction_t packet_d
 
     // if the state is SYN, it means we expect a syn-ack packet from the other side.
     if (status == SYN){
-        printk("At SYN: syn: %d, ack: %d, fin: %d\n", tcph->syn, tcph->ack, tcph->fin);
+        //printk("At SYN: syn: %d, ack: %d, fin: %d\n", tcph->syn, tcph->ack, tcph->fin);
         if (tcph->syn && tcph->ack){
             state->status = SYN_ACK;
             state->direction = next_direction(packet_direction);
@@ -203,7 +203,7 @@ int perform_statefull_inspection(const struct tcphdr *tcph, direction_t packet_d
     // if the state is SYN_ACK, it means we expect an ack packet to establish the connection.
     // since the connection is just established we don't have a specific direction to expect.
     if (status == SYN_ACK){
-        printk("At SYN_ack: syn: %d, ack: %d, fin: %d\n", tcph->syn, tcph->ack, tcph->fin);
+        //printk("At SYN_ack: syn: %d, ack: %d, fin: %d\n", tcph->syn, tcph->ack, tcph->fin);
         if (tcph->ack){
             state->status = ESTABLISHED;
             state->direction = DIRECTION_ANY;
@@ -216,7 +216,7 @@ int perform_statefull_inspection(const struct tcphdr *tcph, direction_t packet_d
     // if the packet is a fin packet, it means the connection is about to close.
     // at this point we need to change the state to FIN1 and expect a fin-ack packet from the other side.
     if (status == ESTABLISHED){
-        printk("At ESTABLISHED: syn: %d, ack: %d, fin: %d\n", tcph->syn, tcph->ack, tcph->fin);
+        //printk("At ESTABLISHED: syn: %d, ack: %d, fin: %d\n", tcph->syn, tcph->ack, tcph->fin);
         if (tcph->fin){
             state->status = A_SENT_FIN;
             state->direction = next_direction(packet_direction);
@@ -234,7 +234,7 @@ int perform_statefull_inspection(const struct tcphdr *tcph, direction_t packet_d
     // which means, we need to expect a ack packet from any side.
     // If the packet is FIN and ACK, we need to expect a ACK from A, so we will move to the state A_FIN_B_FIN_ACK.
     if (status == A_SENT_FIN){
-        printk("At A_SENT_FIN: syn: %d, ack: %d, fin: %d\n", tcph->syn, tcph->ack, tcph->fin);
+        //printk("At A_SENT_FIN: syn: %d, ack: %d, fin: %d\n", tcph->syn, tcph->ack, tcph->fin);
         if (tcph->ack){
             state->status = A_FIN_B_ACK;
             state->direction = packet_direction;
@@ -250,26 +250,26 @@ int perform_statefull_inspection(const struct tcphdr *tcph, direction_t packet_d
             state->direction = next_direction(packet_direction);
             return 0;
         }
-        return 1;
+        return 0;
     }
 
     // if the state is A_FIN_B_ACK, it means we expect a fin packet.
     // if the packet is a fin packet, it means the connection is about to close and we need to expect an ack packet from the other side.
     // so we move to the state A_FIN_B_FIN_ACK.
     if (status == A_FIN_B_ACK){
-        printk("At A_FIN_B_ACK: syn: %d, ack: %d, fin: %d\n", tcph->syn, tcph->ack, tcph->fin);
+        //printk("At A_FIN_B_ACK: syn: %d, ack: %d, fin: %d\n", tcph->syn, tcph->ack, tcph->fin);
         if (tcph->fin){
             state->status = A_FIN_B_FIN_ACK;
             state->direction = DIRECTION_ANY;
             return 0;
         }
-        return 1;
+        return 0;
     }
 
     // if the state is A_FIN_B_FIN_ACK, it means we expect an ack packet that will close the connection.
     // so we need to check if the packet is an ack packet and return 2.
     if (status == A_FIN_B_FIN_ACK){
-        printk("At A_FIN_B_FIN_ACK: syn: %d, ack: %d, fin: %d\n", tcph->syn, tcph->ack, tcph->fin);
+        //printk("At A_FIN_B_FIN_ACK: syn: %d, ack: %d, fin: %d\n", tcph->syn, tcph->ack, tcph->fin);
         if (tcph->ack){
             return 2;
         }
@@ -279,7 +279,7 @@ int perform_statefull_inspection(const struct tcphdr *tcph, direction_t packet_d
     // if the state is A_FIN_B_FIN, it means we need ack from every side to close the connection.
     // so we need to check if the packet is an ack packet and update the state to be A_FIN_B_FIN_ACK.
     if (status == A_FIN_B_FIN){
-        printk("At A_FIN_B_FIN: syn: %d, ack: %d, fin: %d\n", tcph->syn, tcph->ack, tcph->fin);
+        //printk("At A_FIN_B_FIN: syn: %d, ack: %d, fin: %d\n", tcph->syn, tcph->ack, tcph->fin);
         if (tcph->ack){
             state->status = A_FIN_B_FIN_ACK;
             state->direction = next_direction(packet_direction);
