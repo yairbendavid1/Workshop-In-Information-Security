@@ -29,7 +29,7 @@ int check_packet_ip(__be32 rule_ip, __be32 rule_prefix_mask, __u8 rule_prefix_si
 int check_packet_ack(ack_t packet_ack, ack_t rule_ack);
 int check_for_special_cases(__be32 *packet_src_ip, __be32 *packet_dst_ip, __be16 *packet_src_port, __be16 *packet_dst_port, __u8 *packet_protocol, direction_t *packet_direction);
 void print_log(log_row_t *log);
-void print_packet(__be32 *src_ip, __be32 *dst_ip, __be16 *src_port, __be16 *dst_port, __u8 *protocol, ack_t *ack, direction_t *direction);
+void print_packet(__be32 *src_ip, __be32 *dst_ip, __be16 *src_port, __be16 *dst_port, __u8 *protocol, ack_t *ack, direction_t *direction, unsigned int is_syn_packet);
 
 
 #endif
