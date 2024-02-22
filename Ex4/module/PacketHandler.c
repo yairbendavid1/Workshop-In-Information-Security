@@ -299,7 +299,7 @@ void set_direction(struct sk_buff *skb, direction_t *packet_direction, const str
     // *packet_direction = 0;
 
     char *net_in = state->in->name;
-    char *net_out = state->out->name;
+    char *net_out = state->out->name; 
     
     if ((net_out != NULL && strcmp(net_out, EXT_NET_DEVICE_NAME) == 0) || (net_in != NULL && strcmp(net_in, INT_NET_DEVICE_NAME) == 0))
     {
