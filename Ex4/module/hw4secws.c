@@ -167,9 +167,7 @@ static int __init my_module_init_function(void){
         goto connections_file_creation_failed;
     }
 
-    return 0;
-
-
+    
 
     /*
     Part 5: Registering the hook points.
