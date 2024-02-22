@@ -178,7 +178,7 @@ int perform_statefull_inspection(const struct tcphdr *tcph, direction_t packet_d
 
     // we first need to check if the packet is in the right direction.
     // if the packet is not in the right direction we will return 1.
-    if (packet_direction != conn_direction){
+    if (packet_direction != conn_direction && conn_direction != DIRECTION_ANY){
         printk("unexpected direction\n");
         return 1;
     }
