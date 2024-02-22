@@ -28,7 +28,7 @@ int show_conns(){
     int buff_size = sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint16_t) + sizeof(uint16_t) + sizeof(direction_t) + sizeof(tcp_status_t);
     char con_row_buf[buff_size]; // The buffer we will read the logs to
     connection_t current_con;
-    char con_string[256];
+    char con_string[256] = "";
 
     // Before we print the logs, we need to print the titles of the columns of the log table.
     printf("in_entity_ip			in_entity_port			out_entity_ip	out_entity_port 	next_directrion 	status\n");
