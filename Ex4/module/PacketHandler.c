@@ -40,7 +40,7 @@ unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook
         return NF_ACCEPT;
     }
 
-    
+
     // as now, we can fill the time, ip port and protocol fields of the log_row_t struct.
     // reason, action and count will be filled later.
     set_time_ip_and_port_for_log(&log_for_packet, &packet_src_ip, &packet_dst_ip, &packet_src_port, &packet_dst_port, &packet_protocol);
@@ -52,41 +52,46 @@ unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook
         return NF_DROP;
     }
 
+    if (packet.hooknum == NF_INET_LOCAL_OUT)
+        {
+            return NF_ACCEPT;
+        }
     // Stateful Part
 
     // If the packet is TCP and not a syn packet, we need to check if the packet is part of an existing connection.
     if (packet_protocol == PROT_TCP && !is_syn_packet){
-        // if the packet is not a syn packet we need to check if the packet is part of an existing connection.
+        // // if the packet is not a syn packet we need to check if the packet is part of an existing connection.
 
-        // if the packet is not part of an existing connection we will drop it and log the action.
-        conn = is_connection_exist(&packet_src_ip, &packet_dst_ip, &packet_src_port, &packet_dst_port, packet_direction);
-        if (conn == NULL){
-            add_log(&log_for_packet, REASON_NO_MATCHING_CONNECTION, NF_DROP);
-            return NF_DROP;
-        }
+        // // if the packet is not part of an existing connection we will drop it and log the action.
+        // conn = is_connection_exist(&packet_src_ip, &packet_dst_ip, &packet_src_port, &packet_dst_port, packet_direction);
+        // if (conn == NULL){
+        //     add_log(&log_for_packet, REASON_NO_MATCHING_CONNECTION, NF_DROP);
+        //     return NF_DROP;
+        // }
 
-        // if the packet is part of an existing connection we will perform stateful inspection.
+        // // if the packet is part of an existing connection we will perform stateful inspection.
         
-        TCP_validity = perform_statefull_inspection(tcp_hdr(skb), packet_direction, &conn->state);
+        // TCP_validity = perform_statefull_inspection(tcp_hdr(skb), packet_direction, &conn->state);
 
 
-        // if TCP_validity is 0 it means the packet is valid and we will accept it.
-        // if TCP_validity is 1 it means the packet is not valid and we will drop it.
-        // if TCP_validity is 2 it means the packet is valid and the connection is about to close so we will remove it from the connection table.
-        if(TCP_validity == 0){
-            add_log(&log_for_packet, REASON_VALID_CONNECTION_EXIST, NF_ACCEPT);
-            return NF_ACCEPT;
-        }
-        if(TCP_validity == 1){
-            add_log(&log_for_packet, REASON_INVALID_CONNECTION_STATE, NF_DROP);
-            return NF_DROP;
-        }
-        if(TCP_validity == 2){
-            finish_connection(conn);
-            add_log(&log_for_packet, REASON_VALID_CONNECTION_EXIST, NF_ACCEPT);
-            return NF_ACCEPT;
-        }
-        return NF_DROP;
+        // // if TCP_validity is 0 it means the packet is valid and we will accept it.
+        // // if TCP_validity is 1 it means the packet is not valid and we will drop it.
+        // // if TCP_validity is 2 it means the packet is valid and the connection is about to close so we will remove it from the connection table.
+        // if(TCP_validity == 0){
+        //     add_log(&log_for_packet, REASON_VALID_CONNECTION_EXIST, NF_ACCEPT);
+        //     return NF_ACCEPT;
+        // }
+        // if(TCP_validity == 1){
+        //     add_log(&log_for_packet, REASON_INVALID_CONNECTION_STATE, NF_DROP);
+        //     return NF_DROP;
+        // }
+        // if(TCP_validity == 2){
+        //     finish_connection(conn);
+        //     add_log(&log_for_packet, REASON_VALID_CONNECTION_EXIST, NF_ACCEPT);
+        //     return NF_ACCEPT;
+        // }
+        // return NF_DROP;
+        return NF_ACCEPT;
 
         
     }
