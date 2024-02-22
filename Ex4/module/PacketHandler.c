@@ -4,7 +4,7 @@
 #include "PacketHandler.h"
 #include "FWConnectionDevice.h"
 
-
+static int cnt = 0;
 
 // This function is called when a packet is received at one of the hook points.
 unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook_state *state) {
@@ -53,7 +53,7 @@ unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook
     }
 
 
-    print_packet(&packet_src_ip, &packet_dst_ip, &packet_src_port, &packet_dst_port, &packet_protocol, &packet_ack, &packet_direction);
+    print_packet(&packet_src_ip, &packet_dst_ip, &packet_src_port, &packet_dst_port, &packet_protocol, &packet_ack, &packet_direction, is_syn_packet);
     // Stateful Part
     
     // If the packet is TCP and not a syn packet, we need to check if the packet is part of an existing connection.
@@ -70,7 +70,7 @@ unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook
         // if the packet is part of an existing connection we will perform stateful inspection.
 
         TCP_validity = perform_statefull_inspection(tcp_hdr(skb), packet_direction, &conn->state);
-
+        printk("TCP_validity: %d\n", TCP_validity);
 
         // if TCP_validity is 0 it means the packet is valid and we will accept it.
         // if TCP_validity is 1 it means the packet is not valid and we will drop it.
@@ -89,7 +89,7 @@ unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook
             return NF_ACCEPT;
         }
         return NF_DROP;
-
+    
     }
     // if the packet is not TCP or it is a syn packet we will perform stateless inspection.
     // Stateless Part
@@ -179,6 +179,7 @@ int perform_statefull_inspection(const struct tcphdr *tcph, direction_t packet_d
     // we first need to check if the packet is in the right direction.
     // if the packet is not in the right direction we will return 1.
     if (packet_direction != conn_direction){
+        printk("unexpected direction\n");
         return 1;
     }
 
@@ -189,6 +190,7 @@ int perform_statefull_inspection(const struct tcphdr *tcph, direction_t packet_d
 
     // if the state is SYN, it means we expect a syn-ack packet from the other side.
     if (status == SYN){
+        printk("At SYN: syn: %d, ack: %d\n", tcph->syn, tcph->ack);
         if (tcph->syn && tcph->ack){
             state->status = SYN_ACK;
             state->direction = next_direction(packet_direction);
@@ -514,12 +516,14 @@ void print_log(log_row_t *log){
     printk("count: %d\n", log->count);
 }
 
-void print_packet(__be32 *src_ip, __be32 *dst_ip, __be16 *src_port, __be16 *dst_port, __u8 *protocol, ack_t *ack, direction_t *direction){
+void print_packet(__be32 *src_ip, __be32 *dst_ip, __be16 *src_port, __be16 *dst_port, __u8 *protocol, ack_t *ack, direction_t *direction, unsigned int is_syn_packet){
+    printk("Packet number: %d\n", cnt++);
     printk("src_ip: %d\t", *src_ip);
     printk("dst_ip: %d\t", *dst_ip);
     printk("src_port: %d\t", *src_port);
     printk("dst_port: %d\t", *dst_port);
     printk("protocol: %d\t", *protocol);
     printk("ack: %d\t", *ack);
+    printk("SYN: %d\t", is_syn_packet);
     printk("direction: %d\n", *direction);
 }
