@@ -25,6 +25,7 @@ unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook
     connection_t *conn;
     __u8 TCP_validity;
     rule_t *rule_table; 
+    int special;
 
     // Now we will parse the packet and fill the fields with the values from the packet.
     set_direction(skb, &packet_direction, state);
@@ -33,19 +34,13 @@ unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook
     set_protocol(skb, &packet_protocol);
     set_ack_and_xmas(skb, &packet_ack, &is_XMAS_Packet);
 
-    // Loopbacks and packet with other protocols then TCP, UDP and ICMP are accepted withput log
-
-    // if the packet is a loopback packet we will accept it without log
-    if (((packet_src_ip & 0xFF000000) == 0x7F000000) || ((packet_dst_ip & 0xFF000000) == 0x7F000000)){
+    // we need to check if one of the special cases is valid for the packet.
+    special = check_for_special_cases(&packet_src_ip, &packet_dst_ip, &packet_src_port, &packet_dst_port, &packet_protocol, &packet_direction);
+    if (special == 1){
         return NF_ACCEPT;
     }
 
-    // if the packet is not TCP, UDP or ICMP we will accept it without log
-     if (packet_protocol == PROT_OTHER){
-        // if packet_protocol is -1 it means the protocol is not TCP, UDP or ICMP and we will accept it
-        return NF_ACCEPT;
-     }
-
+    
     // as now, we can fill the time, ip port and protocol fields of the log_row_t struct.
     // reason, action and count will be filled later.
     set_time_ip_and_port_for_log(&log_for_packet, &packet_src_ip, &packet_dst_ip, &packet_src_port, &packet_dst_port, &packet_protocol);
@@ -131,6 +126,40 @@ unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook
     add_log(&log_for_packet, REASON_NO_MATCHING_RULE, NF_DROP);
     return NF_DROP;
 
+}
+
+// This function will get the packet info and check for special cases.
+// The following cases are checked:
+// 1. If the packet if LOOPBACK packet.
+// 2. If the packet is not TCP, UDP or ICMP.
+// 3. If the packet is destined to the firewall itself.
+// 4. If the packet is not between the internal and external networks.
+// The function return 1 for accept, 0 for drop and -1 if neither.
+int check_for_special_cases(__be32 *packet_src_ip, __be32 *packet_dst_ip, __be16 *packet_src_port, __be16 *packet_dst_port, __u8 *packet_protocol, direction_t *packet_direction){
+    // if the packet is a loopback packet we will accept it without log
+    if (((*packet_src_ip & 0xFF000000) == 0x7F000000) || ((*packet_dst_ip & 0xFF000000) == 0x7F000000)){
+        return 1;
+    }
+
+    // if the packet is not TCP, UDP or ICMP we will accept it without log
+    if (*packet_protocol == PROT_OTHER){
+        // if packet_protocol is -1 it means the protocol is not TCP, UDP or ICMP and we will accept it
+        return 1;
+    }
+
+    // if the packet is destined to the firewall itself we will accept it without log
+    // we can do so by checking if the packet is destined to the internal or external ip of the firewall.
+    // which are 167837955 ( 10.1.1.3) and 167838211 (10.1.2.3).
+    if ((*packet_dst_ip == 167837955) || (*packet_dst_ip == 167838211)){
+        return 1;
+    }
+
+    // if the packet is not between the internal and external networks we will drop it and log the action.
+    if (packet_direction == DIRECTION_ANY){
+        return 1;
+    }
+
+    return -1;
 }
 
 
