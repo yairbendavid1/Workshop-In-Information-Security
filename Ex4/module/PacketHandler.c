@@ -52,6 +52,15 @@ unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook
         return NF_DROP;
     }
 
+    // if the packet is part of a proxy connection, we need to change the corresponding fields in the packet for the proxy.
+    if (Handle_Proxy_Packet(skb, state, &packet_src_ip, &packet_dst_ip, &packet_src_port, &packet_dst_port, &packet_protocol, &packet_direction) == 1){
+        add_log(&log_for_packet, REASON_PROXY, NF_ACCEPT);
+        return NF_ACCEPT;
+    }
+
+    if(state->hook == NF_INET_LOCAL_OUT){
+        return NF_ACCEPT;
+    }
 
     //print_packet(&packet_src_ip, &packet_dst_ip, &packet_src_port, &packet_dst_port, &packet_protocol, &packet_ack, &packet_direction, is_syn_packet);
     // Stateful Part
@@ -115,9 +124,14 @@ unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook
             // when a rule match, the reason of the log will be the rule index.
 
             // if the packet is a syn packet we need to add a new connection to the connection table.
-            if (packet_protocol == PROT_TCP && is_syn_packet){
+            if (packet_protocol == PROT_TCP && is_syn_packet && (rule_table + ind)->action == NF_ACCEPT){
                 printk("inserting connection");
-                insert_connection(&packet_src_ip, &packet_dst_ip, &packet_src_port, &packet_dst_port, packet_direction);
+                conn = insert_connection(&packet_src_ip, &packet_dst_ip, &packet_src_port, &packet_dst_port, packet_direction);
+                if (create_proxy(conn, &packet_direction, &packet_dst_port)){
+                    Handle_Proxy_Packet(skb, state, &packet_src_ip, &packet_dst_ip, &packet_src_port, &packet_dst_port, &packet_protocol, &packet_direction);
+                    add_log(&log_for_packet, REASON_PROXY, (rule_table + ind)->action);
+                    return NF_ACCEPT;
+                }
             }
             add_log(&log_for_packet, ind, (rule_table + ind)->action);
             return (rule_table + ind)->action;
@@ -128,6 +142,132 @@ unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook
     return NF_DROP;
 
 }
+
+// This function will Handle the packet if it is part of a proxy connection.
+// In order to check if a packet is a part of proxy, we need to check the direction, ip port and the hook type.
+// There are 4 types of proxy connections:
+// 1. client send to the server - we need to hook the packet at the prerouting point and change the destination ip and port to the FW.
+// 2. server send to the client - we need to hook the packet at the prerouting point and change the source ip and port to the FW.
+// 3. FW to client - we need to hook the packet at the localout point and change the source ip and port to the server.
+// 4. FW to server - we need to hook the packet at the localout point and change the destination ip and port to the client.
+// If the packet is part of a proxy connection we will change the corresponding fields in the packet and return 1.
+// If the packet is not part of a proxy connection we will return 0 (and then continue the regular inspection).
+int Handle_Proxy_Packet(struct sk_buff *skb, const struct nf_hook_state *state, __be32 *packet_src_ip, __be32 *packet_dst_ip, __be16 *packet_src_port, __be16 *packet_dst_port, __u8 *packet_protocol, direction_t *packet_direction){
+    // Proxy Packets are all TCP packets:
+    if (packet_protocol != PROT_TCP){
+        return 0;
+    }
+    struct iphdr *iph = ip_hdr(skb);
+    struct tcphdr *tcph = tcp_hdr(skb);
+    connection_t conn;
+    __be16 fw_port;
+    if (packet_direction == DIRECTION_OUT){ 
+        // if the packet it destined to the outside, it means there are 2 options:
+        // 1. the packet is from the client to the server.
+        // 2. the packet is from the FW to the server.
+        // we can check it by check the hook type.
+        if (state->hook == NF_INET_PRE_ROUTING){
+            // if the hook type is prerouting it means the packet is from the client to the server.
+            // so we need to check if the packet in the connection table.
+            // and if so, we need to change the destination ip and port to the FW.
+            // if the packet is not in the connection table we will return 0.
+            conn = from_client_to_proxy_connection(packet_src_ip, packet_src_port);
+            if (conn == NULL){
+                return 0;
+            }
+            
+            // Change the routing
+                iph->daddr = htonl(FW_IN_LEG);
+                redirect_port = (proxy->type == PROXY_HTTP) ? HTTP_PROXY_PORT : FTP_PROXY_PORT;
+                if (conn->proxy.proxy_state == REG_HTTP){
+                    fw_port = 800;
+                }
+                else{
+                    fw_port = 210;
+                }
+                tcph->dest = htons(fw_port);
+
+                // Fix the checksum
+                fix_checksum(skb);
+
+                return 1;
+
+        }
+        else{
+            // if the hook type is localout it means the packet is from the FW to the server.
+            // so we need to check if the source port is in the FW proxy ports.
+            // and if so, we need to change the source ip to be the client.
+
+            
+            conn = is_port_proxy_exist(packet_src_port);
+            if (conn == NULL){
+                return 0;
+            }
+            
+            // we also need to check if the packet is destined for the server.
+            if (packet_dst_ip != conn->outity.ip || packet_dst_port != conn->outity.port){
+                return 0;
+            }
+            // Fake source
+            iph->saddr = htonl(conn->intity.ip);
+
+            // Fix the checksum
+            fix_checksum(skb);
+            return 1;
+        }
+    }
+    else{
+        // if the packet is destined to the inside, it means there are 2 options:
+        // 1. the packet is from the server to the client.
+        // 2. the packet is from the FW to the client.
+        // we can check it by check the hook type.
+        if (state->hook == NF_INET_LOCAL_OUT){
+            // if the hook type is local out it means the packet is from the fw to the client.
+            // so we need to check if the packet in the connection table.
+            // and if so, we need to change the source ip and port to the FW.
+            // if the packet is not in the connection table we will return 0.
+            conn = from_client_to_proxy_connection(packet_dst_ip, packet_dst_port);
+            if (conn == NULL){
+                return 0;
+            }
+            
+            // fake the source
+            iph->saddr = htonl(conn->outity.ip);
+            tcph->source = htons(conn->outity.port);
+
+            // Fix the checksum
+            fix_checksum(skb);
+
+            return 1;
+        }
+        else{
+            // if the hook type is pre routing it means the packet is from the server to the client.
+            // so we need to check if the dst port is in the FW proxy ports.
+            // and if so, we need to change the dst ip to be the FW.
+            conn = is_port_proxy_exist(packet_dst_port);
+            if (conn == NULL){
+                return 0;
+            }
+            
+            // we also need to check if the packet is from the server in the connection table.
+            if (packet_src_ip != conn->outity.ip || packet_src_port != conn->outity.port){
+                return 0;
+            }
+            //change the routing
+            iph->daddr = htonl(FW_OUT_LEG);
+
+            // Fix the checksum
+            fix_checksum(skb);
+            return 1;
+        
+
+    }
+}
+
+
+
+
+
 
 // This function will get the packet info and check for special cases.
 // The following cases are checked:
@@ -151,7 +291,7 @@ int check_for_special_cases(__be32 *packet_src_ip, __be32 *packet_dst_ip, __be16
     // if the packet is destined to the firewall itself we will accept it without log
     // we can do so by checking if the packet is destined to the internal or external ip of the firewall.
     // which are 167837955 ( 10.1.1.3) and 167838211 (10.1.2.3).
-    if ((*packet_dst_ip == 167837955) || (*packet_dst_ip == 167838211)){
+    if ((*packet_dst_ip == FW_IN_LEG) || (*packet_dst_ip == FW_OUT_LEG)){
         return 1;
     }
 

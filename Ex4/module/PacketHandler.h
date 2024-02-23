@@ -1,5 +1,5 @@
-#ifndef _FILTER_H_
-#define _FILTER_H_
+#ifndef _HANDLER_H_
+#define _HANDLER_H_
 
 
 #include "fw.h"
@@ -8,6 +8,8 @@
 
 #define INT_NET_DEVICE_NAME "enp0s8"
 #define EXT_NET_DEVICE_NAME "enp0s9"
+#define FW_IN_LEG 167837955
+#define FW_OUT_LEG 167838211
 
 
 // This function will be assign to the nf_hook_ops struct, and will be called on each packet that is going through the network.

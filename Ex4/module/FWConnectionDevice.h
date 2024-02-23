@@ -40,7 +40,19 @@ typedef struct
     direction_t direction;
 } tcp_state_t;
 
+typedef enum
+{
+    NONE,
+    REG_HTTP,
+    FTP_CREATE,
+    FTP_DATA,
+} proxy_state_t;
 
+typedef struct
+{
+    __be16 proxy_port;
+    proxy_state_t proxy_state;
+} proxy_t;
 
 // This is a connection entry in the connection table.
 typedef struct
@@ -48,6 +60,7 @@ typedef struct
     entity_t intity;  // entity in the internal network
     entity_t outity;  // entity in the external network
     tcp_state_t state; // the state of the connection
+    proxy_t proxy; // In case of proxy - the proxy port and the proxy state
 
     struct list_head node; // the node in the linked list - used to iterate over the list
 } connection_t; 
@@ -57,7 +70,7 @@ typedef struct
 ssize_t show_connections(struct device *dev, struct device_attribute *attr, char *buf);
 unsigned int check_for_syn_packet(struct sk_buff *skb, const struct nf_hook_state *state);
 direction_t next_direction(direction_t direction);
-void insert_connection(__be32 *src_ip, __be32 *dst_ip, __be16 *src_port, __be16 *dst_port, direction_t direction);
+connection_t *insert_connection(__be32 *src_ip, __be32 *dst_ip, __be16 *src_port, __be16 *dst_port, direction_t direction);
 void finish_connection(connection_t *conn);
 void set_entities(__be32 *src_ip, __be16 *src_port, __be32 *dst_ip, __be16 *dst_port, direction_t direction, entity_t *int_entity, entity_t *out_entity);
 int compare_entities(entity_t *entity1, entity_t *entity2);

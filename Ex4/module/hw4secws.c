@@ -14,11 +14,13 @@ MODULE_AUTHOR("Yair");
 static int rules_major_number;
 static int log_major_number;
 static int connections_major_number;
+static int proxy_major_number;
 static struct class* sysfs_class = NULL;
 static struct device* rules_device = NULL;
 static struct device* log_device = NULL;
 static struct device *log_dev = NULL;
 static struct device *connections_device = NULL;
+static struct device *proxy_device = NULL;
 static int log_major;
 
 // Allocating two hook points for the two different hook points we want to use.
@@ -61,10 +63,14 @@ static struct file_operations rules_fops = {
     .owner = THIS_MODULE
 };
 
+static struct file_operations proxy_ops = {
+    .owner = THIS_MODULE
+};
 
 static struct file_operations conn_ops = {
     .owner = THIS_MODULE
 };
+
 
 static DEVICE_ATTR(rules, S_IWUSR | S_IRUGO, show_rules, store_rules);
 
@@ -72,6 +78,9 @@ static DEVICE_ATTR(reset, S_IWUSR | S_IRUGO, NULL, reset_log);
 
 static DEVICE_ATTR(conns, S_IWUSR | S_IRUGO, show_connections, NULL);
 
+static DEVICE_ATTR(set_port, S_IWUSR, NULL, set_proxy_port);
+
+static DEVICE_ATTR(add_ftp, S_IWUSR, NULL, add_ftp_data);
 
 
 // This function is called when the module is loaded.
@@ -80,7 +89,9 @@ static DEVICE_ATTR(conns, S_IWUSR | S_IRUGO, show_connections, NULL);
 // 1. Creating the sysfs class, "fw".
 // 2. Creating the log device and assigning it to the class "fw".
 // 3. Creating the rules device and assigning it to the class "fw".
-// 4. Registering the farword hook point.
+// 4. Creating the connections device and assigning it to the class "fw"
+// 5. Creating the proxy device and assigning it to the class "fw"
+// 6. Registering the farword hook point.
 // If an error occured in one of the parts, the function will move to the error section and undo all the actions that were done before the error occured (in reverse order).
 // If no error occured, the function will return 0.
 
@@ -167,10 +178,41 @@ static int __init my_module_init_function(void){
         goto connections_file_creation_failed;
     }
 
-    
+
 
     /*
-    Part 5: Registering the hook points.
+    Part 5: Registering the proxy device.
+    */
+
+    // create char device
+    proxy_major_number = register_chrdev(0, "fw_logggg", &proxy_ops);
+    if (proxy_major_number < 0)
+    {
+        goto proxy_char_device_creation_failed;
+    }
+
+    // create sysfs device - acced from sysfs
+    proxy_device = device_create(sysfs_class, NULL, MKDEV(proxy_major_number, 0), NULL, "proxy");
+    if (IS_ERR(proxy_device))
+    {
+        goto proxy_device_creation_failed;
+    }
+
+    if (device_create_file(proxy_device, (const struct device_attribute *)&dev_attr_set_port.attr))
+    {
+        goto set_proxy_file_creation_failed;
+    }
+
+    if (device_create_file(proxy_device, (const struct device_attribute *)&dev_attr_add_ftp.attr))
+    {
+        goto add_proxy_file_creation_failed;
+    }
+
+
+
+
+    /*
+    Part 6: Registering the hook points.
     */
 
     // Register the prerouting hook point.
@@ -191,6 +233,14 @@ static int __init my_module_init_function(void){
 registeration_local_failed:
     nf_unregister_net_hook(&init_net, &prerouting_hook_point_op);
 registeration_pre_failed:
+    device_remove_file(proxy_device, (const struct device_attribute *)&dev_attr_add_ftp.attr);
+add_proxy_file_creation_failed:
+    device_remove_file(proxy_device, (const struct device_attribute *)&dev_attr_set_port.attr);
+set_proxy_file_creation_failed:
+    device_destroy(sysfs_class, MKDEV(proxy_major_number, 0));
+proxy_device_creation_failed:
+    unregister_chrdev(connections_major_number, "fw_logggg");
+proxy_char_device_creation_failed:
     device_remove_file(connections_device, (const struct device_attribute *)&dev_attr_conns.attr);
 connections_file_creation_failed:
     device_destroy(sysfs_class, MKDEV(connections_major_number, 0));
@@ -217,6 +267,10 @@ sysfs_class_creation_failed:
 static void __exit my_module_exit_function(void){
     nf_unregister_net_hook(&init_net, &localout_hook_point_op);
     nf_unregister_net_hook(&init_net, &prerouting_hook_point_op);
+    device_remove_file(proxy_device, (const struct device_attribute *)&dev_attr_add_ftp.attr);
+    device_remove_file(proxy_device, (const struct device_attribute *)&dev_attr_set_port.attr);
+    device_destroy(sysfs_class, MKDEV(proxy_major_number, 0));
+    unregister_chrdev(connections_major_number, "fw_logggg");
     device_remove_file(connections_device, (const struct device_attribute *)&dev_attr_conns.attr);
     device_destroy(sysfs_class, MKDEV(connections_major_number, 0));
     unregister_chrdev(connections_major_number, "fw_loggg");

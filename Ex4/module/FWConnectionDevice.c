@@ -26,8 +26,9 @@ direction_t next_direction(direction_t direction){
 }
 
 // This function will add a new connection to the connection table
-void insert_connection(__be32 *src_ip, __be32 *dst_ip, __be16 *src_port, __be16 *dst_port, direction_t direction){
+connection_t *insert_connection(__be32 *src_ip, __be32 *dst_ip, __be16 *src_port, __be16 *dst_port, direction_t direction){
     connection_t *conn;
+    proxy_t proxy;
     conn = kmalloc(sizeof(connection_t), GFP_KERNEL);
     if (!conn){
         return NULL;
@@ -44,10 +45,14 @@ void insert_connection(__be32 *src_ip, __be32 *dst_ip, __be16 *src_port, __be16 
         conn->outity.ip = *dst_ip;
         conn->outity.port = *dst_port;
     }
+    proxy.proxy_port = 0;
+    proxy.proxy_state = NONE;
     conn->state.status = SYN;
+    conn->proxy = proxy;
     conn->state.direction = next_direction(direction);
     list_add(&conn->node, &connection_table);
     connection_table_size++;
+    return conn;
 
 }
 
