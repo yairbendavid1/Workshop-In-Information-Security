@@ -65,13 +65,14 @@ class ProxyHandler(threading.Thread):
     # This function is responsible for communicating with the client.
     # This is an "abstract" method that should be implemented by the child classes.
     
-    @abstractmethod   
+      
     def perform_client_connection(self):
         pass
 
     # This function is responsible for communicating with the server.
     # This is an "abstract" method that should be implemented by the child classes.
-    @abstractmethod
+    
+    
     def perform_server_connection(self):
         pass
 
