@@ -3,7 +3,7 @@
 #include "FWRuleDevice.h"
 
 
-static LIST_HEAD(connection_table);
+LIST_HEAD(connection_table);
 __u32 connection_table_size = 0;
 
 
