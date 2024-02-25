@@ -116,8 +116,8 @@ connection_t *create_empty_connection(void)
     connection_t *conn = (connection_t *)kmalloc(sizeof(connection_t), GFP_KERNEL);
 
     // Add connection to the table
-    list_add_tail(&conn->list_node, &ctable);
-    connections_amount++;
+    list_add_tail(&conn->node, &connection_table);
+    connection_table_size++;
 
     return conn;
 }

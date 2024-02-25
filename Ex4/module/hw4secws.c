@@ -3,6 +3,7 @@
 #include "FWRuleDevice.h"
 #include "PacketHandler.h"
 #include "FWConnectionDevice.h"
+#include "FWProxyDevice.h"
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Yair");

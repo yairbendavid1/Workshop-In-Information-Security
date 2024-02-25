@@ -3,6 +3,7 @@
 #include "FWRuleDevice.h"
 #include "PacketHandler.h"
 #include "FWConnectionDevice.h"
+#include "FWProxyDevice.h"
 
 static int cnt = 0;
 
