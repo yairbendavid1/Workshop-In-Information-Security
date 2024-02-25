@@ -76,6 +76,6 @@ void set_entities(__be32 *src_ip, __be16 *src_port, __be32 *dst_ip, __be16 *dst_
 int compare_entities(entity_t *entity1, entity_t *entity2);
 connection_t *is_connection_exist(__be32 *src_ip, __be32 *dst_ip, __be16 *src_port, __be16 *dst_port, direction_t direction);
 void convert_connection_to_buff(const connection_t *conn, char *buf);
-
+connection_t *create_empty_connection(void);
 
 #endif // _FW_CONNECTION_DEVICE_H

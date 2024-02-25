@@ -15,6 +15,9 @@
 // This function will be assign to the nf_hook_ops struct, and will be called on each packet that is going through the network.
 unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook_state *state);
 int perform_statefull_inspection(const struct tcphdr *tcph, direction_t packet_direction, tcp_state_t *state);
+int perform_stateless_inspection(struct sk_buff *skb, const struct nf_hook_state *state, log_row_t *log_for_packet, direction_t packet_direction, __be32 packet_src_ip, __be32 packet_dst_ip, __u8 packet_protocol, __be16 packet_src_port, __be16 packet_dst_port, ack_t packet_ack, unsigned int is_syn_packet, int log_action);
+int Handle_Proxy_Packet(struct sk_buff *skb, const struct nf_hook_state *state, __be32 *packet_src_ip, __be32 *packet_dst_ip, __be16 *packet_src_port, __be16 *packet_dst_port, __u8 *packet_protocol, direction_t *packet_direction);
+
 
 // functions for extracting the packet fields
 void set_direction(struct sk_buff *skb, direction_t *packet_direction, const struct nf_hook_state *state);

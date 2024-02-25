@@ -109,6 +109,20 @@ connection_t *is_connection_exist(__be32 *src_ip, __be32 *dst_ip, __be16 *src_po
     return NULL;  
 }
 
+connection_t *create_empty_connection(void)
+{
+
+    // Allocate connection
+    connection_t *conn = (connection_t *)kmalloc(sizeof(connection_t), GFP_KERNEL);
+
+    // Add connection to the table
+    list_add_tail(&conn->list_node, &ctable);
+    connections_amount++;
+
+    return conn;
+}
+
+
 // This function is called when the device file is read from user space.
 // It should return the number of bytes written to the buffer.
 ssize_t show_connections(struct device *dev, struct device_attribute *attr, char *buf)

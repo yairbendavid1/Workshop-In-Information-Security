@@ -43,11 +43,27 @@ int create_proxy(connection_t *conn, direction_t *direction, __be16 *port){
     return 0;
 }
 
-/* void copy_from_buff_and_increase(const char **buf_ptr, void *var, size_t n){
-    memcpy(var, *buf_ptr, n);
-    *buf_ptr += n;
+
+
+// This function gets a packet after modifying it and fix the checksums
+void fix_checksum(struct sk_buff *skb)
+{
+    struct iphdr *ip_header = ip_hdr(skb);
+    struct tcphdr *tcp_header = tcp_hdr(skb);
+
+    // Fix TCP header checksum
+    int tcplen = (ntohs(ip_header->tot_len) - ((ip_header->ihl) << 2));
+    tcp_header->check = 0;
+    tcp_header->check =
+        tcp_v4_check(tcplen, ip_header->saddr, ip_header->daddr, csum_partial((char *)tcp_header, tcplen, 0));
+
+    // Fix IP header checksum
+    ip_header->check = 0;
+    ip_header->check = ip_fast_csum((u8 *)ip_header, ip_header->ihl);
+    skb->ip_summed = CHECKSUM_NONE;
+    // skb->csum_valid = 0;
 }
-*/
+
 
 
 // This function is the store function for the proxy port attribute
@@ -83,5 +99,44 @@ ssize_t set_proxy_port(struct device *dev, struct device_attribute *attr, const 
     proxy_table[proxy_port] = conn;
 
     return bsize;
+}
+
+
+
+ssize_t add_ftp_data(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+{
+    __be32 ftp_ip, server_ip;
+    __be16 ftp_port;
+    connection_t *conn;
+    __u16 FTP_ADD_SIZE = 2 * sizeof(__be32) + sizeof(__be16);
+    if (count < FTP_ADD_SIZE)
+    {
+        return 0;
+    }
+
+    // Should get (client_ip, server_ip, ftp_data_port)
+    copy_from_buff_and_increase(&buf, &ftp_ip, sizeof(ftp_ip));
+    copy_from_buff_and_increase(&buf, &server_ip, sizeof(server_ip));
+    copy_from_buff_and_increase(&buf, &ftp_port, sizeof(ftp_port));
+
+    // Add an FTP data connection
+    conn = create_empty_connection();
+
+    // Set identifiers
+    conn->intity.ip = ftp_ip;
+    conn->intity.port = ftp_port;
+    conn->outity.ip = server_ip;
+    conn->outity.port = 0; // Wildcard - match to any port
+    
+
+    // Initialize connection state
+    conn->state.status = PRESYN;
+    conn->state.direction = DIRECTION_IN; // Now the client becomes the server
+
+    // Non-proxy connection
+    conn->proxy.proxy_state = FTP_DATA;
+    conn->proxy.proxy_port = 1;
+
+    return FTP_ADD_SIZE;
 }
 

@@ -63,6 +63,8 @@ unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook
     }
 
     //print_packet(&packet_src_ip, &packet_dst_ip, &packet_src_port, &packet_dst_port, &packet_protocol, &packet_ack, &packet_direction, is_syn_packet);
+
+
     // Stateful Part
     
     // If the packet is TCP and not a syn packet, we need to check if the packet is part of an existing connection.
@@ -102,22 +104,33 @@ unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook
     }
     // if the packet is not TCP or it is a syn packet we will perform stateless inspection.
     // Stateless Part
+    return perform_stateless_inspection(skb, state, &log_for_packet, packet_direction, packet_src_ip, packet_dst_ip, packet_protocol, packet_src_port, packet_dst_port, packet_ack, is_syn_packet, 1);
 
+}
 
+// This function will be the stateless part of the full firewall inspection.
+// It will get the packet and check if it is valid according to the rules.
+// It will return the action of the packet (accept or drop).
+// It will also log the action of the packet.
+int perform_stateless_inspection(struct sk_buff *skb, const struct nf_hook_state *state, log_row_t *log_for_packet, direction_t packet_direction, __be32 packet_src_ip, __be32 packet_dst_ip, __u8 packet_protocol, __be16 packet_src_port, __be16 packet_dst_port, ack_t packet_ack, unsigned int is_syn_packet, int log_action){
+    rule_t *rule_table;
+    int ind;
+    connection_t *conn;
     // If the rule table is not valid, then accept automatically (and log the action).
     if (is_valid_table() == 0)
     {
-
-        add_log(&log_for_packet, REASON_FW_INACTIVE, NF_ACCEPT);
+        if (log_action == 1)
+        {
+            add_log(log_for_packet, REASON_FW_INACTIVE, NF_ACCEPT);
+        }
         return NF_ACCEPT;
     }
 
-    // now after we cover all the side cases we need to check if there is a rule that match to the packet.
+    // now a we need to check if there is a rule that match to the packet.
     // We need to work based on the first rule matched to the packet.
     // if no rule is matched we need to drop the packet.
 
     rule_table = get_rule_table();
-    int ind;
     for(ind = 0; ind < get_rules_amount(); ind++){
         if (check_rule_for_packet(rule_table + ind, &packet_direction, &packet_src_ip, &packet_dst_ip, &packet_protocol, &packet_src_port, &packet_dst_port, &packet_ack)){
             // if we found a match we need to log the action and return the action.
@@ -129,18 +142,23 @@ unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook
                 conn = insert_connection(&packet_src_ip, &packet_dst_ip, &packet_src_port, &packet_dst_port, packet_direction);
                 if (create_proxy(conn, &packet_direction, &packet_dst_port)){
                     Handle_Proxy_Packet(skb, state, &packet_src_ip, &packet_dst_ip, &packet_src_port, &packet_dst_port, &packet_protocol, &packet_direction);
-                    add_log(&log_for_packet, REASON_PROXY, (rule_table + ind)->action);
+                    if (log_action == 1){
+                        add_log(log_for_packet, REASON_PROXY, (rule_table + ind)->action);
+                    }
                     return NF_ACCEPT;
                 }
             }
-            add_log(&log_for_packet, ind, (rule_table + ind)->action);
+            if (log_action == 1){
+                add_log(log_for_packet, ind, (rule_table + ind)->action);
+            }
             return (rule_table + ind)->action;
         }
     }
     // if no match found we log the action and return NF_DROP.
-    add_log(&log_for_packet, REASON_NO_MATCHING_RULE, NF_DROP);
+    if (log_action == 1){
+        add_log(log_for_packet, REASON_NO_MATCHING_RULE, NF_DROP);
+    }
     return NF_DROP;
-
 }
 
 // This function will Handle the packet if it is part of a proxy connection.
@@ -178,7 +196,6 @@ int Handle_Proxy_Packet(struct sk_buff *skb, const struct nf_hook_state *state, 
             
             // Change the routing
                 iph->daddr = htonl(FW_IN_LEG);
-                redirect_port = (proxy->type == PROXY_HTTP) ? HTTP_PROXY_PORT : FTP_PROXY_PORT;
                 if (conn->proxy.proxy_state == REG_HTTP){
                     fw_port = 800;
                 }
@@ -261,9 +278,9 @@ int Handle_Proxy_Packet(struct sk_buff *skb, const struct nf_hook_state *state, 
             return 1;
         
 
+        }
     }
 }
-
 
 
 
@@ -322,7 +339,14 @@ int perform_statefull_inspection(const struct tcphdr *tcph, direction_t packet_d
         printk("unexpected direction\n");
         return 1;
     }
-
+    if (status == PRESYN){
+        if (tcph->syn && !tcph->ack){
+            state->status = SYN;
+            state->direction = packet_direction;
+            return 0;
+        }
+        return 1;
+    }
     // If we are here it means that the packet is in the right direction!
     // Now its time for the state machine.
     // Further information about the state machine can be found in the documentation.
