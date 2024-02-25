@@ -13,9 +13,10 @@ class ProxyHandler(threading.Thread):
     FW_OUT_LEG = '10.1.2.3' # used for the firewall to communicate with the outside world
     PATH_TO_PROXY_DEV = '/sys/class/fw/proxy/set_port'
 
-
+    """
     @param conn: The socket with the client.
     @param adrr: The address list of the client, return by the accept() method of the socket.
+    """
     def __init__(self, conn, adrr):
         super(ProxyHandler, self).__init__()
         self.csocket = conn # This is the socket with the client, used to send and receive data.
