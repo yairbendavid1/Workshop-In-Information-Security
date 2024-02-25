@@ -1,9 +1,10 @@
 #include "fw.h"
-#include "FWProxyDecive.h"
+#include "FWProxyDevice.h"
 #include "FWConnectionDevice.h"
+#include "FWRuleDevice.h"
 
 
-connection_t *proxy_ports[1 << 16];
+connection_t *proxy_table[1 << 16];
 extern struct list_head connection_table;
 extern __u32 connection_table_size;
 
@@ -13,7 +14,7 @@ extern __u32 connection_table_size;
 
 connection_t *from_client_to_proxy_connection(__be32 *client_ip, __be16 *client_port){
     connection_t *conn;
-    list_for_each_entry(conn, &connection_table, list_node){
+    list_for_each_entry(conn, &connection_table, node){
         if (conn->intity.ip == *client_ip && conn->outity.port == *client_port){
             return conn;
         }
@@ -22,7 +23,7 @@ connection_t *from_client_to_proxy_connection(__be32 *client_ip, __be16 *client_
 }
 
 connection_t *is_port_proxy_exist(__be16 *proxy_port){
-    return proxy_ports[*proxy_port];
+    return proxy_table[*proxy_port];
 }
 
 int create_proxy(connection_t *conn, direction_t *direction, __be16 *port){
@@ -30,12 +31,12 @@ int create_proxy(connection_t *conn, direction_t *direction, __be16 *port){
         return 0;
     }
     
-    if (packet->dst_port == 80)
+    if (*port == 80)
     {
         conn->proxy.proxy_state = REG_HTTP;
         return 1;
     }
-    if (packet->dst_port == 21)
+    if (*port == 21)
     {
         conn->proxy.proxy_state = FTP_CREATE;
         return 1;
@@ -90,9 +91,9 @@ ssize_t set_proxy_port(struct device *dev, struct device_attribute *attr, const 
     copy_from_buff_and_increase(&buf, &proxy_port, sizeof(proxy_port));
     
     conn = from_client_to_proxy_connection(&client_ip, &client_port);
-    if (proxy == NULL)
+    if (conn == NULL)
     {
-        printk("set_proxy_port: can't find proxy")
+        printk("set_proxy_port: can't find proxy");
     }
 
     conn->proxy.proxy_port = proxy_port;

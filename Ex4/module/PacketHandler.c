@@ -178,7 +178,7 @@ int Handle_Proxy_Packet(struct sk_buff *skb, const struct nf_hook_state *state, 
     }
     struct iphdr *iph = ip_hdr(skb);
     struct tcphdr *tcph = tcp_hdr(skb);
-    connection_t conn;
+    connection_t *conn;
     __be16 fw_port;
     if (packet_direction == DIRECTION_OUT){ 
         // if the packet it destined to the outside, it means there are 2 options:
