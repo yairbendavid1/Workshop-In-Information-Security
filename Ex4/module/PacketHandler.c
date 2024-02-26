@@ -173,14 +173,14 @@ int perform_stateless_inspection(struct sk_buff *skb, const struct nf_hook_state
 // If the packet is not part of a proxy connection we will return 0 (and then continue the regular inspection).
 int Handle_Proxy_Packet(struct sk_buff *skb, const struct nf_hook_state *state, __be32 *packet_src_ip, __be32 *packet_dst_ip, __be16 *packet_src_port, __be16 *packet_dst_port, __u8 *packet_protocol, direction_t *packet_direction){
     // Proxy Packets are all TCP packets:
-    if (packet_protocol != PROT_TCP){
+    if (*packet_protocol != PROT_TCP){
         return 0;
     }
     struct iphdr *iph = ip_hdr(skb);
     struct tcphdr *tcph = tcp_hdr(skb);
     connection_t *conn;
     __be16 fw_port;
-    if (packet_direction == DIRECTION_OUT){ 
+    if (*packet_direction == DIRECTION_OUT){ 
         // if the packet it destined to the outside, it means there are 2 options:
         // 1. the packet is from the client to the server.
         // 2. the packet is from the FW to the server.
@@ -227,7 +227,7 @@ int Handle_Proxy_Packet(struct sk_buff *skb, const struct nf_hook_state *state, 
                 return 0;
             }
             // Fake source
-            iph->saddr = htonl(conn->intity.ip);
+            iph->saddr = (conn->intity.ip);
 
             // Fix the checksum
             fix_checksum(skb);
@@ -250,7 +250,7 @@ int Handle_Proxy_Packet(struct sk_buff *skb, const struct nf_hook_state *state, 
             }
             
             // fake the source
-            iph->saddr = htonl(conn->outity.ip);
+            iph->saddr = (conn->outity.ip);
             tcph->source = htons(conn->outity.port);
 
             // Fix the checksum
