@@ -7,44 +7,52 @@
 
 static int cnt = 0;
 
+
 // This function is called when a packet is received at one of the hook points.
 unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook_state *state) {
     log_row_t log_for_packet;
+    packet_information_t *packet;
+    extract_information_from_packet(packet, skb, state);
 
 
     // First we need to allocate some memory for the fields of the packet that store in the sk_buff.
     // we will use those fields to check if the packet is allowed or not.
-    direction_t packet_direction; // the direction of the packet
-    __be32 packet_src_ip; // the source ip of the packet
-    __be32 packet_dst_ip; // the destination ip of the packet
-    __be16 packet_src_port; // the source port of the packet
-    __be16 packet_dst_port; // the destination port of the packet
-    __u8 packet_protocol; // the protocol of the packet
-    ack_t packet_ack; // the ack of the packet
-    __u8 is_XMAS_Packet; // bit that indicate if the packet is XMAS packet
-    unsigned int is_syn_packet = check_for_syn_packet(skb, state); // bit that indicate if the packet is a syn packet
+    // direction_t packet_direction; // the direction of the packet
+    // __be32 packet_src_ip; // the source ip of the packet
+    // __be32 packet_dst_ip; // the destination ip of the packet
+    // __be16 packet_src_port; // the source port of the packet
+    // __be16 packet_dst_port; // the destination port of the packet
+    // __u8 packet_protocol; // the protocol of the packet
+    // ack_t packet_ack; // the ack of the packet
+    // __u8 is_XMAS_Packet; // bit that indicate if the packet is XMAS packet
+    // unsigned int is_syn_packet = check_for_syn_packet(skb, state); // bit that indicate if the packet is a syn packet
     connection_t *conn;
     __u8 TCP_validity;
     rule_t *rule_table;
     int special;
 
     // Now we will parse the packet and fill the fields with the values from the packet.
-    set_direction(skb, &packet_direction, state);
-    set_src_dst_ip(skb, &packet_src_ip, &packet_dst_ip);
-    set_src_dst_port(skb, &packet_src_port, &packet_dst_port);
-    set_protocol(skb, &packet_protocol);
-    set_ack_and_xmas(skb, &packet_ack, &is_XMAS_Packet);
+    // set_direction(skb, &packet_direction, state);
+    // set_src_dst_ip(skb, &packet_src_ip, &packet_dst_ip);
+    // set_src_dst_port(skb, &packet_src_port, &packet_dst_port);
+    // set_protocol(skb, &packet_protocol);
+    // set_ack_and_xmas(skb, &packet_ack, &is_XMAS_Packet);
 
     // we need to check if one of the special cases is valid for the packet.
-    special = check_for_special_cases(&packet_src_ip, &packet_dst_ip, &packet_src_port, &packet_dst_port, &packet_protocol, &packet_direction);
+    special = check_for_special_cases(packet);
     if (special == 1){
         return NF_ACCEPT;
+    }
+    if (special == 0){
+        set_time_ip_and_port_for_log(&log_for_packet, &(packet->src_ip), &(packet->dst_ip), &(packet->src_port), &(packet->dst_port), &(packet->protocol));
+        add_log(&log_for_packet, REASON_XMAS_PACKET, NF_DROP);
+        return NF_DROP;
     }
 
 
     // as now, we can fill the time, ip port and protocol fields of the log_row_t struct.
     // reason, action and count will be filled later.
-    set_time_ip_and_port_for_log(&log_for_packet, &packet_src_ip, &packet_dst_ip, &packet_src_port, &packet_dst_port, &packet_protocol);
+    set_time_ip_and_port_for_log(&log_for_packet, &(packet->src_ip), &(packet->dst_ip), &(packet->src_port), &(packet->dst_port), &(packet->protocol));
 
 
     // we need to check for XMAS packet
@@ -54,12 +62,12 @@ unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook
     }
 
     // if the packet is part of a proxy connection, we need to change the corresponding fields in the packet for the proxy.
-    if (Handle_Proxy_Packet(skb, state, &packet_src_ip, &packet_dst_ip, &packet_src_port, &packet_dst_port, &packet_protocol, &packet_direction) == 1){
+    if (Handle_Proxy_Packet(packet) == 1){
         add_log(&log_for_packet, REASON_PROXY, NF_ACCEPT);
         return NF_ACCEPT;
     }
 
-    if(state->hook == NF_INET_LOCAL_OUT){
+    if(packet->hook == NF_INET_LOCAL_OUT){
         return NF_ACCEPT;
     }
 
@@ -69,11 +77,11 @@ unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook
     // Stateful Part
     
     // If the packet is TCP and not a syn packet, we need to check if the packet is part of an existing connection.
-    if (packet_protocol == PROT_TCP && !is_syn_packet){
+    if (packet->protocol == PROT_TCP && packet->syn == 1, packet->ack == 0){
         // if the packet is not a syn packet we need to check if the packet is part of an existing connection.
 
         // if the packet is not part of an existing connection we will drop it and log the action.
-        conn = is_connection_exist(&packet_src_ip, &packet_dst_ip, &packet_src_port, &packet_dst_port, packet_direction);
+        conn = is_connection_exist(&(packet->src_ip), &(packet->dst_ip), &(packet->src_port), &(packet->dst_port), packet->direction);
         if (conn == NULL){
             add_log(&log_for_packet, REASON_NO_MATCHING_CONNECTION, NF_DROP);
             return NF_DROP;
@@ -81,7 +89,7 @@ unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook
 
         // if the packet is part of an existing connection we will perform stateful inspection.
 
-        TCP_validity = perform_statefull_inspection(tcp_hdr(skb), packet_direction, &conn->state);
+        TCP_validity = perform_statefull_inspection(packet, &conn->state);
         //printk("TCP_validity: %d\n", TCP_validity);
 
         // if TCP_validity is 0 it means the packet is valid and we will accept it.
@@ -113,7 +121,7 @@ unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook
 // It will get the packet and check if it is valid according to the rules.
 // It will return the action of the packet (accept or drop).
 // It will also log the action of the packet.
-int perform_stateless_inspection(struct sk_buff *skb, const struct nf_hook_state *state, log_row_t *log_for_packet, direction_t packet_direction, __be32 packet_src_ip, __be32 packet_dst_ip, __u8 packet_protocol, __be16 packet_src_port, __be16 packet_dst_port, ack_t packet_ack, unsigned int is_syn_packet, int log_action){
+int perform_stateless_inspection(packet_information_t *packet, log_row_t *log_for_packet, int log_action){
     rule_t *rule_table;
     int ind;
     connection_t *conn;
@@ -133,16 +141,16 @@ int perform_stateless_inspection(struct sk_buff *skb, const struct nf_hook_state
 
     rule_table = get_rule_table();
     for(ind = 0; ind < get_rules_amount(); ind++){
-        if (check_rule_for_packet(rule_table + ind, &packet_direction, &packet_src_ip, &packet_dst_ip, &packet_protocol, &packet_src_port, &packet_dst_port, &packet_ack)){
+        if (check_rule_for_packet(rule_table + ind, &(packet->direction), &(packet->src_ip), &(packet->dst_ip), &(packet->protocol), &(packet->src_port), &(packet->dst_port), &(packet->ack))){
             // if we found a match we need to log the action and return the action.
             // when a rule match, the reason of the log will be the rule index.
 
             // if the packet is a syn packet we need to add a new connection to the connection table.
-            if (packet_protocol == PROT_TCP && is_syn_packet && (rule_table + ind)->action == NF_ACCEPT){
+            if (packet->protocol == PROT_TCP && packet->syn && packet->ack == ACK_NO && (rule_table + ind)->action == NF_ACCEPT){
                 printk("inserting connection");
-                conn = insert_connection(&packet_src_ip, &packet_dst_ip, &packet_src_port, &packet_dst_port, packet_direction);
-                if (create_proxy(conn, &packet_direction, &packet_dst_port)){
-                    Handle_Proxy_Packet(skb, state, &packet_src_ip, &packet_dst_ip, &packet_src_port, &packet_dst_port, &packet_protocol, &packet_direction);
+                conn = insert_connection(&(packet->src_ip), &(packet->dst_ip), &(packet->src_port), &(packet->dst_port), packet->direction);
+                if (create_proxy(conn, &(packet->direction), &(packet->dst_port))){
+                    Handle_Proxy_Packet(packet);
                     if (log_action == 1){
                         add_log(log_for_packet, REASON_PROXY, (rule_table + ind)->action);
                     }
@@ -171,26 +179,27 @@ int perform_stateless_inspection(struct sk_buff *skb, const struct nf_hook_state
 // 4. FW to server - we need to hook the packet at the localout point and change the destination ip and port to the client.
 // If the packet is part of a proxy connection we will change the corresponding fields in the packet and return 1.
 // If the packet is not part of a proxy connection we will return 0 (and then continue the regular inspection).
-int Handle_Proxy_Packet(struct sk_buff *skb, const struct nf_hook_state *state, __be32 *packet_src_ip, __be32 *packet_dst_ip, __be16 *packet_src_port, __be16 *packet_dst_port, __u8 *packet_protocol, direction_t *packet_direction){
+int Handle_Proxy_Packet(packet_information_t packet){
     // Proxy Packets are all TCP packets:
-    if (*packet_protocol != PROT_TCP){
+    if (packet->protocol != PROT_TCP){
         return 0;
     }
+    struct sk_buff *skb = packet->skb;
     struct iphdr *iph = ip_hdr(skb);
     struct tcphdr *tcph = tcp_hdr(skb);
     connection_t *conn;
     __be16 fw_port;
-    if (*packet_direction == DIRECTION_OUT){ 
+    if (packet->direction== DIRECTION_OUT){ 
         // if the packet it destined to the outside, it means there are 2 options:
         // 1. the packet is from the client to the server.
         // 2. the packet is from the FW to the server.
         // we can check it by check the hook type.
-        if (state->hook == NF_INET_PRE_ROUTING){
+        if (packet->hook == NF_INET_PRE_ROUTING){
             // if the hook type is prerouting it means the packet is from the client to the server.
             // so we need to check if the packet in the connection table.
             // and if so, we need to change the destination ip and port to the FW.
             // if the packet is not in the connection table we will return 0.
-            conn = from_client_to_proxy_connection(packet_src_ip, packet_src_port);
+            conn = from_client_to_proxy_connection(&(packet->src_ip), &(packet->src_port));
             if (conn == NULL){
                 return 0;
             }
@@ -217,13 +226,13 @@ int Handle_Proxy_Packet(struct sk_buff *skb, const struct nf_hook_state *state, 
             // and if so, we need to change the source ip to be the client.
 
             
-            conn = is_port_proxy_exist(packet_src_port);
+            conn = is_port_proxy_exist(&(packet->src_port));
             if (conn == NULL){
                 return 0;
             }
             
             // we also need to check if the packet is destined for the server.
-            if (packet_dst_ip != conn->outity.ip || packet_dst_port != conn->outity.port){
+            if (packet->dst_ip != conn->outity.ip || packet->dst_port != conn->outity.port){
                 return 0;
             }
             // Fake source
@@ -239,12 +248,12 @@ int Handle_Proxy_Packet(struct sk_buff *skb, const struct nf_hook_state *state, 
         // 1. the packet is from the server to the client.
         // 2. the packet is from the FW to the client.
         // we can check it by check the hook type.
-        if (state->hook == NF_INET_LOCAL_OUT){
+        if (packet->hook == NF_INET_LOCAL_OUT){
             // if the hook type is local out it means the packet is from the fw to the client.
             // so we need to check if the packet in the connection table.
             // and if so, we need to change the source ip and port to the FW.
             // if the packet is not in the connection table we will return 0.
-            conn = from_client_to_proxy_connection(packet_dst_ip, packet_dst_port);
+            conn = from_client_to_proxy_connection(&(packet->dst_ip), &(packet->dst_port));
             if (conn == NULL){
                 return 0;
             }
@@ -262,13 +271,13 @@ int Handle_Proxy_Packet(struct sk_buff *skb, const struct nf_hook_state *state, 
             // if the hook type is pre routing it means the packet is from the server to the client.
             // so we need to check if the dst port is in the FW proxy ports.
             // and if so, we need to change the dst ip to be the FW.
-            conn = is_port_proxy_exist(packet_dst_port);
+            conn = is_port_proxy_exist(&(packet->dst_port));
             if (conn == NULL){
                 return 0;
             }
             
             // we also need to check if the packet is from the server in the connection table.
-            if (packet_src_ip != conn->outity.ip || packet_src_port != conn->outity.port){
+            if (packet->src_ip != conn->outity.ip || packet->src_port != conn->outity.port){
                 return 0;
             }
             //change the routing
@@ -294,14 +303,14 @@ int Handle_Proxy_Packet(struct sk_buff *skb, const struct nf_hook_state *state, 
 // 3. If the packet is destined to the firewall itself.
 // 4. If the packet is not between the internal and external networks.
 // The function return 1 for accept, 0 for drop and -1 if neither.
-int check_for_special_cases(__be32 *packet_src_ip, __be32 *packet_dst_ip, __be16 *packet_src_port, __be16 *packet_dst_port, __u8 *packet_protocol, direction_t *packet_direction){
+int check_for_special_cases(packet_information_t *packet){
     // if the packet is a loopback packet we will accept it without log
-    if (((*packet_src_ip & 0xFF000000) == 0x7F000000) || ((*packet_dst_ip & 0xFF000000) == 0x7F000000)){
+    if (((packet->src_ip & 0xFF000000) == 0x7F000000) || ((packet->dst_ip & 0xFF000000) == 0x7F000000)){
         return 1;
     }
 
     // if the packet is not TCP, UDP or ICMP we will accept it without log
-    if (*packet_protocol == PROT_OTHER){
+    if (packet->protocol == PROT_OTHER){
         // if packet_protocol is -1 it means the protocol is not TCP, UDP or ICMP and we will accept it
         return 1;
     }
@@ -309,15 +318,18 @@ int check_for_special_cases(__be32 *packet_src_ip, __be32 *packet_dst_ip, __be16
     // if the packet is destined to the firewall itself we will accept it without log
     // we can do so by checking if the packet is destined to the internal or external ip of the firewall.
     // which are 167837955 ( 10.1.1.3) and 167838211 (10.1.2.3).
-    if ((*packet_dst_ip == FW_IN_LEG) || (*packet_dst_ip == FW_OUT_LEG)){
+    if ((packet->dst_ip == FW_IN_LEG) || (packet->src_ip == FW_OUT_LEG)){
         return 1;
     }
 
-    // if the packet is not between the internal and external networks we will drop it and log the action.
-    if (*packet_direction == DIRECTION_NONE){
+    // if the packet is not between the internal and external networks we will drop it.
+    if (packet->direction == DIRECTION_NONE){
         return 1;
     }
-
+    // if the packet is XMAS packet we should log and drop it.
+    if (packet->XMAS){    
+        return 0;
+    }
     return -1;
 }
 
@@ -329,8 +341,10 @@ int check_for_special_cases(__be32 *packet_src_ip, __be32 *packet_dst_ip, __be16
 // if the packet is not valid it will return 1.
 // If the packet is valid, and the connection is about to close, it will return 2.
 
-int perform_statefull_inspection(const struct tcphdr *tcph, direction_t packet_direction, tcp_state_t *state)
-{
+int perform_statefull_inspection(packet_information_t packet, tcp_state_t *state)
+{   
+    const struct tcphdr *tcph = tcp_hdr(packet->skb);
+    direction_t packet_direction = packet->direction;
     tcp_status_t status = state->status;
     direction_t conn_direction = state->direction;
 
@@ -455,20 +469,38 @@ int perform_statefull_inspection(const struct tcphdr *tcph, direction_t packet_d
     return 1;
 }
 
+
+// This function will extract the information from the skb to the packet_information_t struct.
+void extract_information_from_packet(packet_information_t *packet *priv, struct sk_buff *skb, const struct nf_hook_state *state){
+    set_direction(skb, &packet->direction, state);
+    set_src_dst_ip(skb, &packet->src_ip, &packet->dst_ip);
+    set_src_dst_port(skb, &packet->src_port, &packet->dst_port);
+    set_protocol(skb, &packet->protocol);
+    packet->hook = state->hook;
+    packet->skb = skb;
+    packet->state = state;
+    // if the packet is tcp, we need to add the field: syn, ack, fin, XMAS.
+    if (packet->protocol == PROT_TCP){
+        struct tcphdr *tcph = tcp_hdr(skb);
+        set_xmas(&packet->XMAS, tcph);
+        packet->syn = tcph->syn;
+        packet->ack = tcph->ack ? ACK_YES : ACK_NO;
+        packet->fin = tcph->fin;
+    }
+    else{
+        packet->syn = 0;
+        packet->ack = ACK_NO;
+        packet->fin = 0;
+    }
+}
+
+
+
+
+
 // This function get a packet and extract the direction from it and store it in the packet_direction.
 void set_direction(struct sk_buff *skb, direction_t *packet_direction, const struct nf_hook_state *state) {
-    // char * in_device_name = state->in->name;
-    // char * out_device_name = state->out->name;
-    // if(strcmp(in_device_name, IN_NET_DEVICE_NAME) == 0 && strcmp(out_device_name, OUT_NET_DEVICE_NAME) == 0) { // if the packet is coming from inside to outside
-    //     *packet_direction = DIRECTION_OUT;
-    //     return;
-    //   }
-    // if(strcmp(in_device_name, OUT_NET_DEVICE_NAME) == 0 && strcmp(out_device_name, IN_NET_DEVICE_NAME) == 0) { // if the packet is coming from outside to inside
-    //     *packet_direction = DIRECTION_IN;
-    //     return;
-    // }
-    // *packet_direction = 0;
-
+    
     char *net_in = state->in->name;
     char *net_out = state->out->name;
 
@@ -562,6 +594,14 @@ void set_ack_and_xmas(struct sk_buff *skb, ack_t *packet_ack, __u8 *is_XMAS_Pack
     *is_XMAS_Packet = 0;
 }
 
+void set_xmas(__u8 *is_XMAS_Packet, struct tcphdr *tcph){
+    if (tcph->fin && tcph->urg && tcph->psh)
+    {
+        *is_XMAS_Packet = 1;
+        return;
+    }
+    *is_XMAS_Packet = 0;
+}
 
 // This function get a rule and a packet and check if the rule is valid for the packet.
 // If the rule is valid for the packet it returns 1, otherwise it returns 0.
