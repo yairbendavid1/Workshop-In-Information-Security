@@ -365,7 +365,7 @@ int Handle_Proxy_Packet(packet_information_t *packet){
             // if the hook type is pre routing it means the packet is from the server to the client.
             // so we need to check if the dst port is in the FW proxy ports.
             // and if so, we need to change the dst ip to be the FW.
-            if (packet->port != 80 && packet->port != 21){
+            if (packet->dst_port != 80 && packet->dst_port != 21){
                 return 0;
             }
             conn = is_port_proxy_exist(&(packet->dst_port));
