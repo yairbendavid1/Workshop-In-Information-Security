@@ -294,7 +294,7 @@ int Handle_Proxy_Packet(packet_information_t *packet){
                 return 0;
             }
             // we also need to check that the packet is indeed need to be proxied.
-            if(packet->port != 80 && packet->port != 21){
+            if(packet->dst_port != 80 && packet->dst_port != 21){
                 return 0;
             }
             // Change the routing
