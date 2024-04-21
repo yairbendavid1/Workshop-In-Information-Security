@@ -69,8 +69,7 @@ unsigned int Pre_Routing_Handler(packet_information_t *packet){
             // If the packet is allowed, we need to check for proxy and add new connection respectively.
 
             conn = insert_connection(&(packet->src_ip), &(packet->dst_ip), &(packet->src_port), &(packet->dst_port), packet->direction);
-            if (is_proxy(conn, &(packet->direction), &(packet->dst_port))){
-                Handle_Proxy_Packet(packet);
+            if (Handle_Proxy_Packet(packet) == 1){
                 add_log(&log_for_packet, REASON_PROXY, NF_ACCEPT);
                 return NF_ACCEPT;
             }
@@ -92,16 +91,14 @@ unsigned int Pre_Routing_Handler(packet_information_t *packet){
     }
     if (TCP_validity == 2){
         finish_connection(conn);
-        if(is_proxy(conn, &(packet->direction), &(packet->dst_port))){
-            Handle_Proxy_Packet(packet);
+        if(Handle_Proxy_Packet(packet) == 1){
             add_log(&log_for_packet, REASON_PROXY, NF_ACCEPT);
             return NF_ACCEPT;
         }
         add_log(&log_for_packet, REASON_VALID_CONNECTION_EXIST, NF_ACCEPT);
         return NF_ACCEPT;
     }
-    if(is_proxy(conn, &(packet->direction), &(packet->dst_port))){
-        Handle_Proxy_Packet(packet);
+    if(Handle_Proxy_Packet(packet) == 1){
         add_log(&log_for_packet, REASON_PROXY, NF_ACCEPT);
         return NF_ACCEPT;
     }
@@ -250,19 +247,6 @@ int perform_stateless_inspection(packet_information_t *packet, log_row_t *log_fo
         if (check_rule_for_packet(rule_table + ind, &(packet->direction), &(packet->src_ip), &(packet->dst_ip), &(packet->protocol), &(packet->src_port), &(packet->dst_port), &(packet->ack))){
             // if we found a match we need to log the action and return the action.
             // when a rule match, the reason of the log will be the rule index.
-
-            // if the packet is a syn packet we need to add a new connection to the connection table.
-            if (packet->protocol == PROT_TCP && packet->syn && packet->ack == ACK_NO && (rule_table + ind)->action == NF_ACCEPT){
-                printk("inserting connection");
-                conn = insert_connection(&(packet->src_ip), &(packet->dst_ip), &(packet->src_port), &(packet->dst_port), packet->direction);
-                if (is_proxy(conn, &(packet->direction), &(packet->dst_port))){
-                    Handle_Proxy_Packet(packet);
-                    if (log_action == 1){
-                        add_log(log_for_packet, REASON_PROXY, (rule_table + ind)->action);
-                    }
-                    return NF_ACCEPT;
-                }
-            }
             if (log_action == 1){
                 add_log(log_for_packet, ind, (rule_table + ind)->action);
             }
@@ -309,7 +293,10 @@ int Handle_Proxy_Packet(packet_information_t *packet){
             if (conn == NULL){
                 return 0;
             }
-            
+            // we also need to check that the packet is indeed need to be proxied.
+            if(packet->port != 80 && packet->port != 21){
+                return 0;
+            }
             // Change the routing
                 iph->daddr = htonl(FW_IN_LEG);
                 if (conn->proxy.proxy_state == REG_HTTP){
@@ -322,7 +309,7 @@ int Handle_Proxy_Packet(packet_information_t *packet){
 
                 // Fix the checksum
                 fix_checksum(skb);
-
+                printk("packet is proxied in client to FW\n");
                 return 1;
 
         }
@@ -346,6 +333,7 @@ int Handle_Proxy_Packet(packet_information_t *packet){
 
             // Fix the checksum
             fix_checksum(skb);
+            printk("packet is proxied in FW to Server\n");
             return 1;
         }
     }
@@ -370,13 +358,16 @@ int Handle_Proxy_Packet(packet_information_t *packet){
 
             // Fix the checksum
             fix_checksum(skb);
-
+            printk("packet is proxied in FW to Client\n");
             return 1;
         }
         else{
             // if the hook type is pre routing it means the packet is from the server to the client.
             // so we need to check if the dst port is in the FW proxy ports.
             // and if so, we need to change the dst ip to be the FW.
+            if (packet->port != 80 && packet->port != 21){
+                return 0;
+            }
             conn = is_port_proxy_exist(&(packet->dst_port));
             if (conn == NULL){
                 return 0;
@@ -391,6 +382,7 @@ int Handle_Proxy_Packet(packet_information_t *packet){
 
             // Fix the checksum
             fix_checksum(skb);
+            printk("packet is proxied in server to FW\n");
             return 1;
         
 
