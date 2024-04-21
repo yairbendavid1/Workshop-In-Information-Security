@@ -34,7 +34,8 @@ unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook
 int perform_statefull_inspection(packet_information_t *packet, tcp_state_t *state);
 int perform_stateless_inspection(packet_information_t *packet, log_row_t *log_for_packet, int log_action);
 int Handle_Proxy_Packet(packet_information_t *packet);
-
+unsigned int Local_Out_Handler(packet_information_t *packet);
+unsigned int Pre_Routing_Handler(packet_information_t *packet);
 // functions for extracting the packet fields
 void extract_information_from_packet(packet_information_t *packet *priv, struct sk_buff *skb, const struct nf_hook_state *state);
 void set_direction(struct sk_buff *skb, direction_t *packet_direction, const struct nf_hook_state *state);
