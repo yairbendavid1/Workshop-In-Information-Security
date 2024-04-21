@@ -26,7 +26,6 @@ typedef struct
     __u8 fin;
     __u8 protocol;   // values from: prot_t
     ack_t ack;       // values from: ack_t
-    packet_type_t type;
 } packet_information_t;
 
 // This function will be assign to the nf_hook_ops struct, and will be called on each packet that is going through the network.
@@ -37,7 +36,7 @@ int Handle_Proxy_Packet(packet_information_t *packet);
 unsigned int Local_Out_Handler(packet_information_t *packet);
 unsigned int Pre_Routing_Handler(packet_information_t *packet);
 // functions for extracting the packet fields
-void extract_information_from_packet(packet_information_t *packet *priv, struct sk_buff *skb, const struct nf_hook_state *state);
+void extract_information_from_packet(packet_information_t *packet, struct sk_buff *skb, const struct nf_hook_state *state);
 void set_direction(struct sk_buff *skb, direction_t *packet_direction, const struct nf_hook_state *state);
 void set_src_dst_ip(struct sk_buff *skb, __be32 *packet_src_ip, __be32 *packet_dst_ip);
 void set_src_dst_port(struct sk_buff *skb, __be16 *packet_src_port, __be16 *packet_dst_port);

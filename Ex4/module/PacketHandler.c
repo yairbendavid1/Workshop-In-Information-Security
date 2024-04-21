@@ -12,7 +12,7 @@ unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook
     packet_information_t packet;
     extract_information_from_packet(&packet, skb, state);
 
-    if(packet->hook == NF_INET_LOCAL_OUT){
+    if(packet.hook == NF_INET_LOCAL_OUT){
         return Local_Out_Handler(&packet);
     }
     return Pre_Routing_Handler(&packet);
@@ -284,7 +284,7 @@ int perform_stateless_inspection(packet_information_t *packet, log_row_t *log_fo
 // 4. FW to server - we need to hook the packet at the localout point and change the destination ip and port to the client.
 // If the packet is part of a proxy connection we will change the corresponding fields in the packet and return 1.
 // If the packet is not part of a proxy connection we will return 0 (and then continue the regular inspection).
-int Handle_Proxy_Packet(packet_information_t packet){
+int Handle_Proxy_Packet(packet_information_t *packet){
     // Proxy Packets are all TCP packets:
     if (packet->protocol != PROT_TCP){
         return 0;
@@ -395,6 +395,7 @@ int Handle_Proxy_Packet(packet_information_t packet){
 
         }
     }
+    return 0;
 }
 
 
@@ -446,7 +447,7 @@ int check_for_special_cases(packet_information_t *packet){
 // if the packet is not valid it will return 0.
 // If the packet is valid, and the connection is about to close, it will return 2.
 
-int perform_statefull_inspection(packet_information_t packet, tcp_state_t *state)
+int perform_statefull_inspection(packet_information_t *packet, tcp_state_t *state)
 {   
     const struct tcphdr *tcph = tcp_hdr(packet->skb);
     direction_t packet_direction = packet->direction;
@@ -576,7 +577,7 @@ int perform_statefull_inspection(packet_information_t packet, tcp_state_t *state
 
 
 // This function will extract the information from the skb to the packet_information_t struct.
-void extract_information_from_packet(packet_information_t *packet *priv, struct sk_buff *skb, const struct nf_hook_state *state){
+void extract_information_from_packet(packet_information_t *packet, struct sk_buff *skb, const struct nf_hook_state *state){
     set_direction(skb, &packet->direction, state);
     set_src_dst_ip(skb, &packet->src_ip, &packet->dst_ip);
     set_src_dst_port(skb, &packet->src_port, &packet->dst_port);
