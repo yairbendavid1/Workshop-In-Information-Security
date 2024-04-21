@@ -26,7 +26,7 @@ connection_t *is_port_proxy_exist(__be16 *proxy_port){
     return proxy_table[*proxy_port];
 }
 
-int create_proxy(connection_t *conn, direction_t *direction, __be16 *port){
+int is_proxy(connection_t *conn, direction_t *direction, __be16 *port){
     if (*direction == DIRECTION_IN){
         return 0;
     }

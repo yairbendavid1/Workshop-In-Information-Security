@@ -17,7 +17,7 @@ class ProxyHandler(threading.Thread):
     @param conn: The socket with the client.
     @param adrr: The address list of the client, return by the accept() method of the socket.
     """
-    def __init__(self, conn, adrr):
+    def __init__(self, conn, addr):
         super(ProxyHandler, self).__init__()
         self.csocket = conn # This is the socket with the client, used to send and receive data.
         self.ssocket = None # This is the socket with the server, used to send and receive data.
