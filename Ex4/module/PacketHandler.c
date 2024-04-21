@@ -11,6 +11,7 @@ static int cnt = 0;
 unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook_state *state){
     packet_information_t packet;
     extract_information_from_packet(&packet, skb, state);
+    print_packet(&packet.src_ip, &packet.dst_ip, &packet.src_port, &packet.dst_port, &packet.protocol, &packet.ack, &packet.direction, packet.syn);
 
     if(packet.hook == NF_INET_LOCAL_OUT){
         return Local_Out_Handler(&packet);
