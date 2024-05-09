@@ -30,6 +30,7 @@ int show_conns(){
     char con_row_buf[buff_size]; // The buffer we will read the logs to
     connection_t current_con;
     char con_string[256] = "";
+    char empty_string[256] = "";
 
     // Before we print the logs, we need to print the titles of the columns of the log table.
     printf("in_entity_ip\tin_entity_port\tout_entity_ip\tout_entity_port\tnext_directrion\tstatus\n");
@@ -38,7 +39,7 @@ int show_conns(){
     for (int i = 0; i < size; i++)
     {
         // Read the log buffer from the log device
-        con_string[0] = "\0";
+        strcpy(con_string, empty_string);
         if (fread(con_row_buf, buff_size, 1, con_fd) != 1){ // on error:
             printf("Error: Cant read from the log device\n");
             return EXIT_FAILURE;
