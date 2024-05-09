@@ -98,7 +98,7 @@ int is_proxy_connection(packet_information_t *packet_info, connection_t *conn){
     else{
         // We are in the external->proxy case
         // In this case we need to change the source IP to the proxy IP
-        iph->saddr = htonl(FW_IN_LEG);
+        iph->saddr = htonl(FW_OUT_LEG);
 
         // AS FOR NOW, WE DON'T SUPPORT PROXYING FROM EXTERNAL NETWORK
 
