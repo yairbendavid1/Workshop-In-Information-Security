@@ -21,11 +21,37 @@ int create_proxy(packet_information_t *packet_info, connection_t *conn){
         if (packet_info->dst_port == 80){ 
             conn->proxy.proxy_state = HTTP_FROM_INTERNAL_NETWORK;
             conn->state.status = PROXY;
-            return 1;
+            return is_proxy_connection(packet_info, conn);
         }
     }
     return 0;
 }
+
+// This function will find the connection of the proxy according to the packet information
+// The function will return the connection of the proxy if found, and NULL otherwise.
+// We know that only packets from server to clinet cannot find connection using is_connection_exist,
+// so we will use this function to find the connection of the proxy, assuming the sender is the server.
+connection_t *find_proxy_connection(packet_information_t *packet_info){
+    //since we know that the sender is the server, and the clien is always the one who initiate the connection,
+    //the port of the FW, which is the dst port is already in the proxy table!
+    connection_t *conn = is_port_proxy_exist(&(packet_info->dst_port));
+    if (conn == NULL){
+        print_message("find_proxy_connection: can't find proxy");
+        return NULL;
+    }
+    // Now we need to check that the server credentials are the same as the sender of the packet
+    // since we dont know in which network the server is, we will split into cases using the proxy state
+    if (conn->proxy.proxy_state == HTTP_FROM_INTERNAL_NETWORK){
+        // In this case, the server is in the external network
+        if (conn->outity.ip == packet_info->src_ip && conn->outity.port == packet_info->src_port){
+            print_message("find_proxy_connection: found proxy\n");
+            return conn;
+        }
+    } 
+    print_message("find_proxy_connection: can't find proxy\n");
+    return NULL;
+}
+    
 
 
 
@@ -36,10 +62,15 @@ int create_proxy(packet_information_t *packet_info, connection_t *conn){
 // NOTE THAT THIS FUNCTION IS USED AT PRE_ROUTING HOOK ONLY!
 // This means that our options are only internal->proxy and external->proxy
 int is_proxy_connection(packet_information_t *packet_info, connection_t *conn){
+    if (conn == NULL){ // If the connection is NULL, return 0
+        conn = find_proxy_connection(packet_info);
+        if (conn == NULL){
+            return 0;
+        }
+    }
     if( conn->state.status != PROXY){ // If the connection is not a proxy connection, return 0
         return 0;
     }
-
     struct sk_buff *skb = packet_info->skb;
     struct iphdr *iph = ip_hdr(skb);
     struct tcphdr *tcph = tcp_hdr(skb);

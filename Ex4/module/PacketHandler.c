@@ -65,6 +65,11 @@ unsigned int Pre_Routing_Handler(packet_information_t *packet){
         return perform_stateless_inspection(packet, &log_for_packet, 1);
     }
 
+    // if the packet is part of a proxy connection, we need to change the corresponding fields in the packet for the proxy.
+    if (is_proxy_connection(packet, conn) == 1){
+        add_log(&log_for_packet, REASON_PROXY, NF_ACCEPT);
+        return NF_ACCEPT;
+    }
 
     // if the packet is TCP, we need to check if the packet is part of a connection.
     if (conn == NULL){
@@ -80,18 +85,14 @@ unsigned int Pre_Routing_Handler(packet_information_t *packet){
             
             if (create_proxy(packet, conn) == 1){
                 print_message("Proxy Connection is created\n"); // Debug
+                add_log(&log_for_packet, REASON_PROXY, NF_ACCEPT);
+                return NF_ACCEPT;
             }
         }
         else{ // If it's not a syn packet, we will drop it.
             add_log(&log_for_packet, REASON_NO_MATCHING_CONNECTION, NF_DROP);
             return NF_DROP;
         }
-    }
-
-    // if the packet is part of a proxy connection, we need to change the corresponding fields in the packet for the proxy.
-    if (is_proxy_connection(packet, conn) == 1){
-        add_log(&log_for_packet, REASON_PROXY, NF_ACCEPT);
-        return NF_ACCEPT;
     }
 
 
