@@ -38,7 +38,6 @@ int show_conns(){
     for (int i = 0; i < size; i++)
     {
         // Read the log buffer from the log device
-        con_string = "";
         if (fread(con_row_buf, buff_size, 1, con_fd) != 1){ // on error:
             printf("Error: Cant read from the log device\n");
             return EXIT_FAILURE;
@@ -157,4 +156,5 @@ void con_convert_status_to_string(tcp_status_t status, char *con_string)
       sprintf(status_str, "proxy");
     }
     strcat(con_string, status_str);
+    strcat(con_string, "\n");
 }
