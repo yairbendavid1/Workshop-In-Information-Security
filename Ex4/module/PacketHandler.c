@@ -45,6 +45,9 @@ unsigned int Pre_Routing_Handler(packet_information_t *packet){
     log_row_t log_for_packet;
     set_time_ip_and_port_for_log(&log_for_packet, &(packet->src_ip), &(packet->dst_ip), &(packet->src_port), &(packet->dst_port), &(packet->protocol));
     connection_t *conn = is_connection_exist(&(packet->src_ip), &(packet->dst_ip), &(packet->src_port), &(packet->dst_port), packet->direction);
+    if (conn == NULL){
+        print_message("Connection is NULL\n"); // Debug
+    }
     // We first need to check for special cases.
     int special = check_for_special_cases(packet);
     // if special is 1 it means the packet is allowed and we will accept it.
@@ -351,7 +354,7 @@ int perform_stateless_inspection(packet_information_t *packet, log_row_t *log_fo
     }
     return NF_DROP;
 }
-
+/*
 // This function will Handle the packet if it is part of a proxy connection.
 // In order to check if a packet is a part of proxy, we need to check the direction, ip port and the hook type.
 // There are 4 types of proxy connections:
@@ -479,7 +482,7 @@ int perform_stateless_inspection(packet_information_t *packet, log_row_t *log_fo
 //     }
 //     return 0;
 // }
-
+*/
 
 
 

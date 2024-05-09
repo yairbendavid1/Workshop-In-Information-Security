@@ -21,6 +21,8 @@ int show_conns(){
         printf("Error: Cant read from the connection device\n");
         return EXIT_FAILURE;
     }
+    printf("size: %d\n", size);
+    
 
     // Now we will read the conn buffers from the connection device and print them to the user
 
