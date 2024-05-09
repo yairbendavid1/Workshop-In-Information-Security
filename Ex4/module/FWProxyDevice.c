@@ -2,6 +2,7 @@
 #include "FWProxyDevice.h"
 #include "FWConnectionDevice.h"
 #include "FWRuleDevice.h"
+#include "PacketHandler.h"
 
 
 connection_t *proxy_table[1 << 16];
