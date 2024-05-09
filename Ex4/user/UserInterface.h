@@ -72,7 +72,7 @@ typedef enum {
 // states of a TCP connection
 typedef enum
 {
-    PRESYN,
+    INIT,
     SYN,
     SYN_ACK,
     ESTABLISHED,
@@ -83,6 +83,7 @@ typedef enum
     A_FIN2,
     B_FIN2,
     B_ACK,
+	PROXY,
 } tcp_status_t;
 
 // rule base

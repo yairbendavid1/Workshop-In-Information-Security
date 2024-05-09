@@ -118,8 +118,8 @@ void con_convert_direction_to_string(direction_t direction, char *con_string)
 void con_convert_status_to_string(tcp_status_t status, char *con_string)
 {
     char status_str[20];
-    if (status == PRESYN){
-      sprintf(status_str, "presyn");
+    if (status == INIT){
+      sprintf(status_str, "INIT");
     }
     if (status ==  SYN_ACK){
       sprintf(status_str, "synack");
@@ -150,6 +150,9 @@ void con_convert_status_to_string(tcp_status_t status, char *con_string)
     }
     if (status == B_ACK){
       sprintf(status_str, "b_ack");
+    }
+    if (status == PROXY){
+      sprintf(status_str, "proxy");
     }
     strcat(con_string, status_str);
 }
