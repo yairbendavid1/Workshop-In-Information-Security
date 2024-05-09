@@ -126,7 +126,10 @@ void route_proxy_packet(packet_information_t *packet_info){
         }
         // Now we can change the source IP and port to the original sender
         iph->saddr = htonl(conn->outity.ip);
-        tcph->source = htons(conn->outity.port);
+        if (conn->proxy.proxy_state == HTTP_FROM_INTERNAL_NETWORK){
+            tcph->source = htons(80);
+        }
+        printk("IP and Port: %d %d\n", conn->outity.ip, conn->outity.port);
         // Fix the checksums
         fix_checksum(skb);
         print_message("P2I: Source of Proxied Packet from FW to Internal has been changed.\n");
