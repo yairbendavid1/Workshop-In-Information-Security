@@ -61,7 +61,7 @@ int is_proxy_connection(packet_information_t *packet_info, connection_t *conn){
         }
         // Fix the checksums
         fix_checksum(skb);
-        print_message("Packet from internal was proxied to FW\n");
+        print_message("I2P: Packet from internal was proxied to FW\n");
         return 1;
     }
     else{
@@ -73,7 +73,7 @@ int is_proxy_connection(packet_information_t *packet_info, connection_t *conn){
 
         // Fix the checksums
         fix_checksum(skb);
-        print_message("Packet from External was proxied to FW\n");
+        print_message("E2P: Packet from External was proxied to FW\n");
         return 1;
     }
     // We should never reach here
@@ -98,12 +98,12 @@ void route_proxy_packet(packet_information_t *packet_info){
         // To do so, we first need to find the connection of the original sender.
         conn = is_port_proxy_exist(&(packet_info->src_port));
         if (conn == NULL){
-            print_message("route_proxy_packet: can't find proxy");
+            print_message("P2E: route_proxy_packet: can't find proxy");
             return;
         }
         // we will check that the extity is the same as the destination of the packet since we dont clean the proxy table.
         if (conn->outity.ip != packet_info->dst_ip || conn->outity.port != packet_info->dst_port){
-            print_message("route_proxy_packet: connection doesn't match");
+            print_message("P2E: route_proxy_packet: connection doesn't match");
             return;
         } 
 
@@ -111,7 +111,7 @@ void route_proxy_packet(packet_information_t *packet_info){
         iph->saddr = conn->intity.ip;
         // Fix the checksums
         fix_checksum(skb);
-        print_message("Source of Proxied Packet from FW to External has been changed.\n");
+        print_message("P2E: Source of Proxied Packet from FW to External has been changed.\n");
         return;
     }
     else{
@@ -119,9 +119,9 @@ void route_proxy_packet(packet_information_t *packet_info){
         // In this case we need to change both the IP and the port of the packet to the original sender
 
         // To do so, we first need to find the connection of the original sender using the client credentials.
-        conn = from_client_to_proxy_connection(&(packet_info->src_ip), &(packet_info->src_port));
+        conn = from_client_to_proxy_connection(&(packet_info->dst_ip), &(packet_info->dst_port));
         if (conn == NULL){
-            print_message("route_proxy_packet: can't find proxy");
+            print_message("P2I: route_proxy_packet: can't find proxy");
             return;
         }
         // Now we can change the source IP and port to the original sender
@@ -129,7 +129,7 @@ void route_proxy_packet(packet_information_t *packet_info){
         tcph->source = htons(conn->outity.port);
         // Fix the checksums
         fix_checksum(skb);
-        print_message("Source of Proxied Packet from FW to Internal has been changed.\n");
+        print_message("P2I: Source of Proxied Packet from FW to Internal has been changed.\n");
         return;
     }
     return;
