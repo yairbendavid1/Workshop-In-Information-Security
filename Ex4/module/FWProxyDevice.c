@@ -216,7 +216,7 @@ ssize_t set_proxy_port(struct device *dev, struct device_attribute *attr, const 
     conn = from_client_to_proxy_connection(&client_ip, &client_port);
     if (conn == NULL)
     {
-        printk("set_proxy_port: can't find proxy");
+        print_message("set_proxy_port: can't find proxy");
     }
 
     conn->proxy.proxy_port = proxy_port;

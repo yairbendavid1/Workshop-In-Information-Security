@@ -25,7 +25,7 @@ unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook
 // And we will return NF_ACCEPT.
 unsigned int Local_Out_Handler(packet_information_t *packet){
     // if the packet is part of a proxy connection, we need to change the corresponding fields in the packet for the proxy.
-    route_proxy_packets(packet);
+    route_proxy_packet(packet);
     // after we changed (if needed) the routing we will accept the packet.
     return NF_ACCEPT;
     }
@@ -361,124 +361,124 @@ int perform_stateless_inspection(packet_information_t *packet, log_row_t *log_fo
 // 4. FW to server - we need to hook the packet at the localout point and change the destination ip and port to the client.
 // If the packet is part of a proxy connection we will change the corresponding fields in the packet and return 1.
 // If the packet is not part of a proxy connection we will return 0 (and then continue the regular inspection).
-int Handle_Proxy_Packet(packet_information_t *packet){
-    // Proxy Packets are all TCP packets:
-    if (packet->protocol != PROT_TCP){
-        return 0;
-    }
-    struct sk_buff *skb = packet->skb;
-    struct iphdr *iph = ip_hdr(skb);
-    struct tcphdr *tcph = tcp_hdr(skb);
-    connection_t *conn;
-    __be16 fw_port;
-    if (packet->direction== DIRECTION_OUT){ 
-        // if the packet it destined to the outside, it means there are 2 options:
-        // 1. the packet is from the client to the server.
-        // 2. the packet is from the FW to the server.
-        // we can check it by check the hook type.
-        if (packet->hook == NF_INET_PRE_ROUTING){
-            // if the hook type is prerouting it means the packet is from the client to the server.
-            // so we need to check if the packet in the connection table.
-            // and if so, we need to change the destination ip and port to the FW.
-            // if the packet is not in the connection table we will return 0.
-            conn = from_client_to_proxy_connection(&(packet->src_ip), &(packet->src_port));
-            if (conn == NULL){
-                return 0;
-            }
-            // we also need to check that the packet is indeed need to be proxied.
-            if(packet->dst_port != 80 && packet->dst_port != 21){
-                return 0;
-            }
-            // Change the routing
-                iph->daddr = htonl(FW_IN_LEG);
-                if (conn->proxy.proxy_state == REG_HTTP){
-                    fw_port = 800;
-                }
-                else{
-                    fw_port = 210;
-                }
-                tcph->dest = htons(fw_port);
+// int Handle_Proxy_Packet(packet_information_t *packet){
+//     // Proxy Packets are all TCP packets:
+//     if (packet->protocol != PROT_TCP){
+//         return 0;
+//     }
+//     struct sk_buff *skb = packet->skb;
+//     struct iphdr *iph = ip_hdr(skb);
+//     struct tcphdr *tcph = tcp_hdr(skb);
+//     connection_t *conn;
+//     __be16 fw_port;
+//     if (packet->direction== DIRECTION_OUT){ 
+//         // if the packet it destined to the outside, it means there are 2 options:
+//         // 1. the packet is from the client to the server.
+//         // 2. the packet is from the FW to the server.
+//         // we can check it by check the hook type.
+//         if (packet->hook == NF_INET_PRE_ROUTING){
+//             // if the hook type is prerouting it means the packet is from the client to the server.
+//             // so we need to check if the packet in the connection table.
+//             // and if so, we need to change the destination ip and port to the FW.
+//             // if the packet is not in the connection table we will return 0.
+//             conn = from_client_to_proxy_connection(&(packet->src_ip), &(packet->src_port));
+//             if (conn == NULL){
+//                 return 0;
+//             }
+//             // we also need to check that the packet is indeed need to be proxied.
+//             if(packet->dst_port != 80 && packet->dst_port != 21){
+//                 return 0;
+//             }
+//             // Change the routing
+//                 iph->daddr = htonl(FW_IN_LEG);
+//                 if (conn->proxy.proxy_state == REG_HTTP){
+//                     fw_port = 800;
+//                 }
+//                 else{
+//                     fw_port = 210;
+//                 }
+//                 tcph->dest = htons(fw_port);
 
-                // Fix the checksum
-                fix_checksum(skb);
-                printk("packet is proxied in client to FW\n");
-                return 1;
+//                 // Fix the checksum
+//                 fix_checksum(skb);
+//                 printk("packet is proxied in client to FW\n");
+//                 return 1;
 
-        }
-        else{
-            // if the hook type is localout it means the packet is from the FW to the server.
-            // so we need to check if the source port is in the FW proxy ports.
-            // and if so, we need to change the source ip to be the client.
+//         }
+//         else{
+//             // if the hook type is localout it means the packet is from the FW to the server.
+//             // so we need to check if the source port is in the FW proxy ports.
+//             // and if so, we need to change the source ip to be the client.
 
             
-            conn = is_port_proxy_exist(&(packet->src_port));
-            if (conn == NULL){
-                return 0;
-            }
+//             conn = is_port_proxy_exist(&(packet->src_port));
+//             if (conn == NULL){
+//                 return 0;
+//             }
             
-            // we also need to check if the packet is destined for the server.
-            if (packet->dst_ip != conn->outity.ip || packet->dst_port != conn->outity.port){
-                return 0;
-            }
-            // Fake source
-            iph->saddr = (conn->intity.ip);
+//             // we also need to check if the packet is destined for the server.
+//             if (packet->dst_ip != conn->outity.ip || packet->dst_port != conn->outity.port){
+//                 return 0;
+//             }
+//             // Fake source
+//             iph->saddr = (conn->intity.ip);
 
-            // Fix the checksum
-            fix_checksum(skb);
-            printk("packet is proxied in FW to Server\n");
-            return 1;
-        }
-    }
-    else{
-        // if the packet is destined to the inside, it means there are 2 options:
-        // 1. the packet is from the server to the client.
-        // 2. the packet is from the FW to the client.
-        // we can check it by check the hook type.
-        if (packet->hook == NF_INET_LOCAL_OUT){
-            // if the hook type is local out it means the packet is from the fw to the client.
-            // so we need to check if the packet in the connection table.
-            // and if so, we need to change the source ip and port to the FW.
-            // if the packet is not in the connection table we will return 0.
-            conn = from_client_to_proxy_connection(&(packet->dst_ip), &(packet->dst_port));
-            if (conn == NULL){
-                return 0;
-            }
+//             // Fix the checksum
+//             fix_checksum(skb);
+//             printk("packet is proxied in FW to Server\n");
+//             return 1;
+//         }
+//     }
+//     else{
+//         // if the packet is destined to the inside, it means there are 2 options:
+//         // 1. the packet is from the server to the client.
+//         // 2. the packet is from the FW to the client.
+//         // we can check it by check the hook type.
+//         if (packet->hook == NF_INET_LOCAL_OUT){
+//             // if the hook type is local out it means the packet is from the fw to the client.
+//             // so we need to check if the packet in the connection table.
+//             // and if so, we need to change the source ip and port to the FW.
+//             // if the packet is not in the connection table we will return 0.
+//             conn = from_client_to_proxy_connection(&(packet->dst_ip), &(packet->dst_port));
+//             if (conn == NULL){
+//                 return 0;
+//             }
             
-            // fake the source
-            iph->saddr = (conn->outity.ip);
-            tcph->source = htons(conn->outity.port);
+//             // fake the source
+//             iph->saddr = (conn->outity.ip);
+//             tcph->source = htons(conn->outity.port);
 
-            // Fix the checksum
-            fix_checksum(skb);
-            printk("packet is proxied in FW to Client\n");
-            return 1;
-        }
-        else{
-            // if the hook type is pre routing it means the packet is from the server to the client.
-            // so we need to check if the dst port is in the FW proxy ports.
-            // and if so, we need to change the dst ip to be the FW.
-            conn = is_port_proxy_exist(&(packet->dst_port));
-            if (conn == NULL){
-                return 0;
-            }
+//             // Fix the checksum
+//             fix_checksum(skb);
+//             printk("packet is proxied in FW to Client\n");
+//             return 1;
+//         }
+//         else{
+//             // if the hook type is pre routing it means the packet is from the server to the client.
+//             // so we need to check if the dst port is in the FW proxy ports.
+//             // and if so, we need to change the dst ip to be the FW.
+//             conn = is_port_proxy_exist(&(packet->dst_port));
+//             if (conn == NULL){
+//                 return 0;
+//             }
             
-            // we also need to check if the packet is from the server in the connection table.
-            if (packet->src_ip != conn->outity.ip || packet->src_port != conn->outity.port){
-                return 0;
-            }
-            //change the routing
-            iph->daddr = htonl(FW_OUT_LEG);
+//             // we also need to check if the packet is from the server in the connection table.
+//             if (packet->src_ip != conn->outity.ip || packet->src_port != conn->outity.port){
+//                 return 0;
+//             }
+//             //change the routing
+//             iph->daddr = htonl(FW_OUT_LEG);
 
-            // Fix the checksum
-            fix_checksum(skb);
-            printk("packet is proxied in server to FW\n");
-            return 1;
+//             // Fix the checksum
+//             fix_checksum(skb);
+//             printk("packet is proxied in server to FW\n");
+//             return 1;
         
 
-        }
-    }
-    return 0;
-}
+//         }
+//     }
+//     return 0;
+// }
 
 
 
