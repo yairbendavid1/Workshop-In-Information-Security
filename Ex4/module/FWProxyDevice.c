@@ -83,7 +83,7 @@ int is_proxy_connection(packet_information_t *packet_info, connection_t *conn){
 
 // NOTE THAT THIS FUNCTION IS USED AT LOCAL_OUT HOOK ONLY!
 // This means that our options are only proxy->internal and proxy->external
-void route_proxy_packet(packet_information_t *packet_info, connection_t *conn){
+void route_proxy_packet(packet_information_t *packet_info){
     connection_t *conn;
     struct sk_buff *skb = packet_info->skb;
     struct iphdr *iph = ip_hdr(skb);
