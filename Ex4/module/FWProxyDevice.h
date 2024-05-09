@@ -3,6 +3,9 @@
 
 #include "fw.h"
 #include "FWConnectionDevice.h"
+#include "PacketHandler.h"
+#include "FWRuleDevice.h"
+
 
 connection_t *from_client_to_proxy_connection(__be32 *client_ip, __be16 *client_port);
 connection_t *is_port_proxy_exist(__be16 *proxy_port);

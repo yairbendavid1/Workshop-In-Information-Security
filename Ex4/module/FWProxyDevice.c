@@ -18,7 +18,7 @@ int create_proxy(packet_information_t *packet_info, connection_t *conn){
     // We first need to check the direction
     if (packet_info->direction == DIRECTION_OUT){
         // We only support HTTP for now
-        if (packet_info->port == 80){
+        if (packet_info->dst_port == 80){ 
             conn->proxy.proxy_state = HTTP_FROM_INTERNAL_NETWORK;
             conn->state.status = PROXY;
             return 1;
@@ -96,7 +96,7 @@ void route_proxy_packet(packet_information_t *packet_info){
 
         // In this case we need to change the source IP to IP of the original sender.
         // To do so, we first need to find the connection of the original sender.
-        conn = is_port_proxy_exist(&(packet_info->port));
+        conn = is_port_proxy_exist(&(packet_info->src_port));
         if (conn == NULL){
             print_message("route_proxy_packet: can't find proxy");
             return;
@@ -125,8 +125,8 @@ void route_proxy_packet(packet_information_t *packet_info){
             return;
         }
         // Now we can change the source IP and port to the original sender
-        iph->saddr = htonl(conn->extity.ip);
-        tcph->source = htons(conn->extity.port);
+        iph->saddr = htonl(conn->outity.ip);
+        tcph->source = htons(conn->outity.port);
         // Fix the checksums
         fix_checksum(skb);
         print_message("Source of Proxied Packet from FW to Internal has been changed.\n");
@@ -255,7 +255,7 @@ ssize_t add_ftp_data(struct device *dev, struct device_attribute *attr, const ch
     
 
     // Initialize connection state
-    conn->state.status = PRESYN;
+    conn->state.status = INIT;
     conn->state.direction = DIRECTION_IN; // Now the client becomes the server
 
     // Non-proxy connection
