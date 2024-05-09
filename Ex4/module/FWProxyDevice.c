@@ -128,7 +128,9 @@ void route_proxy_packet(packet_information_t *packet_info){
         iph->saddr = htonl(conn->outity.ip);
         if (conn->proxy.proxy_state == HTTP_FROM_INTERNAL_NETWORK){
             tcph->source = htons(80);
+            printk("HTTP\n");
         }
+        tcph->source = htons(80);
         printk("IP and Port: %d %d\n", conn->outity.ip, conn->outity.port);
         // Fix the checksums
         fix_checksum(skb);
