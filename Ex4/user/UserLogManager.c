@@ -251,6 +251,15 @@ void log_convert_reason_to_string(int reason, char *log_string)
         strcat(log_string, "		");
         return;
     }
+    if (reason == REASON_PROXY)
+    {
+        char *reason_str;
+        reason_str = "Proxy";
+        strcat(log_string, reason_str);
+        strcat(log_string, "		");
+        return;
+    }
+
     char reason_str[8];
     sprintf(reason_str, "%d", reason);
     strcat(log_string, reason_str);

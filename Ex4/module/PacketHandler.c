@@ -8,6 +8,7 @@
 static int cnt = 0;
 
 
+
 unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook_state *state){
     packet_information_t packet;
     extract_information_from_packet(&packet, skb, state);
@@ -19,12 +20,99 @@ unsigned int Handle_Packet(void *priv, struct sk_buff *skb, const struct nf_hook
     return Pre_Routing_Handler(&packet);
 }
 
+// This function will Handle Local_Out packets.
+// Here we just need to change routing for packets that are part of a proxy connection.
+// And we will return NF_ACCEPT.
 unsigned int Local_Out_Handler(packet_information_t *packet){
-    if (Handle_Proxy_Packet(packet) == 1){
+    // if the packet is part of a proxy connection, we need to change the corresponding fields in the packet for the proxy.
+    route_proxy_packets(packet);
+    // after we changed (if needed) the routing we will accept the packet.
+    return NF_ACCEPT;
+    }
+
+
+// This function will Handle Pre_Routing packets.
+// The flow is:
+// 1. Check for special cases.
+// 2. check for proxy routing.
+// 3. check for packet protocol:
+// 3.1. If the packet is not TCP, perform stateless inspection.
+// 3.2. If the packet is TCP:
+// 3.2.1. If the packet is not part of a connection, check for syn and perform stateless inspection.
+//        If the packet passed the stateless inspection, add new connection.
+// 3.2.2. perform stateful inspection and change the state of the connection.
+unsigned int Pre_Routing_Handler(packet_information_t *packet){
+    log_row_t log_for_packet;
+    set_time_ip_and_port_for_log(&log_for_packet, &(packet->src_ip), &(packet->dst_ip), &(packet->src_port), &(packet->dst_port), &(packet->protocol));
+    connection_t *conn = is_connection_exist(&(packet->src_ip), &(packet->dst_ip), &(packet->src_port), &(packet->dst_port), packet->direction);
+    // We first need to check for special cases.
+    int special = check_for_special_cases(packet);
+    // if special is 1 it means the packet is allowed and we will accept it.
+    if (special == 1){
         return NF_ACCEPT;
     }
-    return NF_ACCEPT;
+    // if special is 0 it means the packet is not allowed and we will drop it.
+    if (special == 0){
+        add_log(&log_for_packet, REASON_XMAS_PACKET, NF_DROP);
+        return NF_DROP;
+    }
+
+    // if the packet is not TCP we will perform stateless inspection.
+    if (packet->protocol != PROT_TCP){
+        return perform_stateless_inspection(packet, &log_for_packet, 1);
+    }
+
+
+    // if the packet is TCP, we need to check if the packet is part of a connection.
+    if (conn == NULL){
+        // if the packet is not part of a connection we need to check if it's a syn packet.
+        if (packet->syn && packet->ack == ACK_NO){
+            // if it is, we will perform stateless inspection.
+            if (perform_stateless_inspection(packet, &log_for_packet, 0) == NF_DROP){
+                // if the packet is not allowed we will drop it.
+                return NF_DROP;
+            }
+            // if the packet is allowed, we will create connection and check for proxy.
+            conn = insert_connection(&(packet->src_ip), &(packet->dst_ip), &(packet->src_port), &(packet->dst_port), packet->direction);
+            
+            if (create_proxy(packet, conn) == 1){
+                print_message("Proxy Connection is created\n"); // Debug
+            }
+        }
+        else{ // If it's not a syn packet, we will drop it.
+            add_log(&log_for_packet, REASON_NO_MATCHING_CONNECTION, NF_DROP);
+            return NF_DROP;
+        }
+    }
+
+    // if the packet is part of a proxy connection, we need to change the corresponding fields in the packet for the proxy.
+    if (is_proxy_connection(packet, conn) == 1){
+        add_log(&log_for_packet, REASON_PROXY, NF_ACCEPT);
+        return NF_ACCEPT;
+    }
+
+
+    // Now, We do have a connection (even new packets has, with state of PRESYN).
+    // We will perform stateful inspection.
+    int TCP_validity = perform_statefull_inspection(packet, &conn->state);
+
+    if (TCP_validity == 0){ // If the packet is invalid, we will drop it.
+        add_log(&log_for_packet, REASON_INVALID_CONNECTION_STATE, NF_DROP);
+        return NF_DROP;
+    }
+    if (TCP_validity == 2){ // If the connection is about to close, we will remove it.
+        finish_connection(conn);
+        add_log(&log_for_packet, REASON_VALID_CONNECTION_EXIST, NF_ACCEPT);
+        return NF_ACCEPT;
+    }
+    if (TCP_validity == 1){ // If the packet is valid, we will accept it.
+        add_log(&log_for_packet, REASON_VALID_CONNECTION_EXIST, NF_ACCEPT);
+        return NF_ACCEPT;
+    }
+    return NF_DROP; // If we are here, it means the packet is not valid and we will drop it.
 }
+
+/*
 
 // This function will Handle Pre_Routing packets.
 // The flow is:
@@ -34,78 +122,77 @@ unsigned int Local_Out_Handler(packet_information_t *packet){
 // 2.2. If the packet is TCP, check connection table:
 // 2.2.1. If connection exist, perform stateful inspection with Proxy Checking.
 // 2.2.2. If connection doesn't exist, check for syn and perform stateless inspection with Proxy Checking.
-unsigned int Pre_Routing_Handler(packet_information_t *packet){
-    // We first need to check for special cases.
-    log_row_t log_for_packet;
-    int special = check_for_special_cases(packet);
-    // if special is 1 it means the packet is allowed and we will accept it.
-    if (special == 1){
-        return NF_ACCEPT;
-    }
-    // if special is 0 it means the packet is not allowed and we will drop it.
-    if (special == 0){
-        set_time_ip_and_port_for_log(&log_for_packet, &(packet->src_ip), &(packet->dst_ip), &(packet->src_port), &(packet->dst_port), &(packet->protocol));
-        add_log(&log_for_packet, REASON_XMAS_PACKET, NF_DROP);
-        return NF_DROP;
-    }
-    // Now, we need to check if the packet is TCP or not.
-    // if the packet is not TCP we will perform stateless inspection.
-    if (packet->protocol != PROT_TCP){
-        set_time_ip_and_port_for_log(&log_for_packet, &(packet->src_ip), &(packet->dst_ip), &(packet->src_port), &(packet->dst_port), &(packet->protocol));
-        return perform_stateless_inspection(packet, &log_for_packet, 1);
-    }
+// unsigned int Pre_Routing_Handler(packet_information_t *packet){
+//     // We first need to check for special cases.
+//     log_row_t log_for_packet;
+//     int special = check_for_special_cases(packet);
+//     set_time_ip_and_port_for_log(&log_for_packet, &(packet->src_ip), &(packet->dst_ip), &(packet->src_port), &(packet->dst_port), &(packet->protocol));
+//     // if special is 1 it means the packet is allowed and we will accept it.
+//     if (special == 1){
+//         return NF_ACCEPT;
+//     }
+//     // if special is 0 it means the packet is not allowed and we will drop it.
+//     if (special == 0){
+//         add_log(&log_for_packet, REASON_XMAS_PACKET, NF_DROP);
+//         return NF_DROP;
+//     }
+//     // Now, we need to check if the packet is TCP or not.
+//     // if the packet is not TCP we will perform stateless inspection.
+//     if (packet->protocol != PROT_TCP){
+//         return perform_stateless_inspection(packet, &log_for_packet, 1);
+//     }
 
-    // In case of TCP, we need to check if the packet is already part of a connection.
-    connection_t *conn = is_connection_exist(&(packet->src_ip), &(packet->dst_ip), &(packet->src_port), &(packet->dst_port), packet->direction);
+//     // In case of TCP, we need to check if the packet is already part of a connection.
+//     connection_t *conn = is_connection_exist(&(packet->src_ip), &(packet->dst_ip), &(packet->src_port), &(packet->dst_port), packet->direction);
     
     
-    if (conn == NULL){
-        // If it doesn't, we need to check if it's a syn packet.
-        if (packet->syn && packet->ack == ACK_NO){
-            // If it is, we will perform stateless inspection.
-            if (perform_stateless_inspection(packet, &log_for_packet, 0) == NF_DROP){
-                return NF_DROP;
-            }
-            // If the packet is allowed, we need to check for proxy and add new connection respectively.
+//     if (conn == NULL){
+//         // If it doesn't, we need to check if it's a syn packet.
+//         if (packet->syn && packet->ack == ACK_NO){
+//             // If it is, we will perform stateless inspection.
+//             if (perform_stateless_inspection(packet, &log_for_packet, 0) == NF_DROP){
+//                 return NF_DROP;
+//             }
+//             // If the packet is allowed, we need to check for proxy and add new connection respectively.
 
-            conn = insert_connection(&(packet->src_ip), &(packet->dst_ip), &(packet->src_port), &(packet->dst_port), packet->direction);
-            if (Handle_Proxy_Packet(packet) == 1){
-                add_log(&log_for_packet, REASON_PROXY, NF_ACCEPT);
-                return NF_ACCEPT;
-            }
-            add_log(&log_for_packet, REASON_VALID_CONNECTION_EXIST, NF_ACCEPT);
-            return NF_ACCEPT;
-        }
-        else{ // If it's not a syn packet, we will drop it.
-            add_log(&log_for_packet, REASON_NO_MATCHING_CONNECTION, NF_DROP);
-            return NF_DROP;
-        }
-    }
-    // If the packet is part of a connection, we will perform stateful inspection.
-    // If the packet is valid, we will accept it, while checking for proxy.
+//             conn = insert_connection(&(packet->src_ip), &(packet->dst_ip), &(packet->src_port), &(packet->dst_port), packet->direction);
+//             if (Handle_Proxy_Packet(packet) == 1){
+//                 add_log(&log_for_packet, REASON_PROXY, NF_ACCEPT);
+//                 return NF_ACCEPT;
+//             }
+//             add_log(&log_for_packet, REASON_VALID_CONNECTION_EXIST, NF_ACCEPT);
+//             return NF_ACCEPT;
+//         }
+//         else{ // If it's not a syn packet, we will drop it.
+//             add_log(&log_for_packet, REASON_NO_MATCHING_CONNECTION, NF_DROP);
+//             return NF_DROP;
+//         }
+//     }
+//     // If the packet is part of a connection, we will perform stateful inspection.
+//     // If the packet is valid, we will accept it, while checking for proxy.
 
-    int TCP_validity = perform_statefull_inspection(packet, &conn->state);
-    if (TCP_validity == 0){
-        add_log(&log_for_packet, REASON_INVALID_CONNECTION_STATE, NF_DROP);
-        return NF_DROP;
-    }
-    if (TCP_validity == 2){
-        finish_connection(conn);
-        if(Handle_Proxy_Packet(packet) == 1){
-            add_log(&log_for_packet, REASON_PROXY, NF_ACCEPT);
-            return NF_ACCEPT;
-        }
-        add_log(&log_for_packet, REASON_VALID_CONNECTION_EXIST, NF_ACCEPT);
-        return NF_ACCEPT;
-    }
-    if(Handle_Proxy_Packet(packet) == 1){
-        add_log(&log_for_packet, REASON_PROXY, NF_ACCEPT);
-        return NF_ACCEPT;
-    }
-    add_log(&log_for_packet, REASON_VALID_CONNECTION_EXIST, NF_ACCEPT);
-    return NF_ACCEPT;
+//     int TCP_validity = perform_statefull_inspection(packet, &conn->state);
+//     if (TCP_validity == 0){
+//         add_log(&log_for_packet, REASON_INVALID_CONNECTION_STATE, NF_DROP);
+//         return NF_DROP;
+//     }
+//     if (TCP_validity == 2){
+//         finish_connection(conn);
+//         if(Handle_Proxy_Packet(packet) == 1){
+//             add_log(&log_for_packet, REASON_PROXY, NF_ACCEPT);
+//             return NF_ACCEPT;
+//         }
+//         add_log(&log_for_packet, REASON_VALID_CONNECTION_EXIST, NF_ACCEPT);
+//         return NF_ACCEPT;
+//     }
+//     if(Handle_Proxy_Packet(packet) == 1){
+//         add_log(&log_for_packet, REASON_PROXY, NF_ACCEPT);
+//         return NF_ACCEPT;
+//     }
+//     add_log(&log_for_packet, REASON_VALID_CONNECTION_EXIST, NF_ACCEPT);
+//     return NF_ACCEPT;
 
-}
+// }
 
 
 
@@ -219,6 +306,11 @@ unsigned int Pre_Routing_Handler(packet_information_t *packet){
 //     return perform_stateless_inspection(skb, state, &log_for_packet, packet_direction, packet_src_ip, packet_dst_ip, packet_protocol, packet_src_port, packet_dst_port, packet_ack, is_syn_packet, 1);
 
 // }
+
+
+
+*/
+
 
 // This function will be the stateless part of the full firewall inspection.
 // It will get the packet and check if it is valid according to the rules.
@@ -365,9 +457,6 @@ int Handle_Proxy_Packet(packet_information_t *packet){
             // if the hook type is pre routing it means the packet is from the server to the client.
             // so we need to check if the dst port is in the FW proxy ports.
             // and if so, we need to change the dst ip to be the FW.
-            if (packet->dst_port != 80 && packet->dst_port != 21){
-                return 0;
-            }
             conn = is_port_proxy_exist(&(packet->dst_port));
             if (conn == NULL){
                 return 0;
@@ -450,10 +539,10 @@ int perform_statefull_inspection(packet_information_t *packet, tcp_state_t *stat
     // we first need to check if the packet is in the right direction.
     // if the packet is not in the right direction we will return 1.
     if (packet_direction != conn_direction && conn_direction != DIRECTION_ANY){
-        printk("unexpected direction\n");
+        print_message("unexpected direction\n");
         return 0;
     }
-    if (status == PRESYN){
+    if (status == INIT){
         if (tcph->syn && !tcph->ack){
             state->status = SYN;
             state->direction = packet_direction;
@@ -814,26 +903,5 @@ int check_packet_ack(ack_t rule_ack, ack_t packet_ack) {
     return rule_ack == packet_ack;
 }
 
-void print_log(log_row_t *log){
-    printk("time: %d\n", log->timestamp);
-    printk("protocol: %d\n", log->protocol);
-    printk("action: %d\n", log->action);
-    printk("src_ip: %d\n", log->src_ip);
-    printk("dst_ip: %d\n", log->dst_ip);
-    printk("src_port: %d\n", log->src_port);
-    printk("dst_port: %d\n", log->dst_port);
-    printk("reason: %d\n", log->reason);
-    printk("count: %d\n", log->count);
-}
 
-void print_packet(__be32 *src_ip, __be32 *dst_ip, __be16 *src_port, __be16 *dst_port, __u8 *protocol, ack_t *ack, direction_t *direction, unsigned int is_syn_packet){
-    printk("Packet number: %d\n", cnt++);
-    printk("src_ip: %d\t", *src_ip);
-    printk("dst_ip: %d\t", *dst_ip);
-    printk("src_port: %d\t", *src_port);
-    printk("dst_port: %d\t", *dst_port);
-    printk("protocol: %d\t", *protocol);
-    printk("ack: %d\t", *ack);
-    printk("SYN: %d\t", is_syn_packet);
-    printk("direction: %d\n", *direction);
-}
+

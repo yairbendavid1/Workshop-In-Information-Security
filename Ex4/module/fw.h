@@ -13,6 +13,14 @@
 #include <linux/uaccess.h>
 #include <net/tcp.h>
 
+#define DEBUG 1 // 1 for debug, 0 for no debug
+#define INT_NET_DEVICE_NAME "enp0s8"
+#define EXT_NET_DEVICE_NAME "enp0s9"
+#define FW_IN_LEG 167837955
+#define FW_OUT_LEG 167838211
+#define HTTP_FROM_INTERNAL_NETWORK_PORT 800
+
+
 // the protocols we will work with
 typedef enum {
 	PROT_ICMP	= 1,
@@ -108,5 +116,11 @@ typedef struct {
 	reason_t     	reason;       	// rule#index, or values from: reason_t
 	unsigned int   	count;        	// counts this line's hits
 } log_row_t;
+
+// Functions for Debugging
+void print_log(log_row_t *log);
+void print_packet(__be32 *src_ip, __be32 *dst_ip, __be16 *src_port, __be16 *dst_port, __u8 *protocol, ack_t *ack, direction_t *direction, unsigned int is_syn_packet);
+void print_message(char *messege);
+
 
 #endif // _FW_H_

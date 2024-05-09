@@ -16,7 +16,7 @@ typedef struct
 // We will use those to check if the connection is valid or not.
 typedef enum
 {
-    PRESYN,
+    INIT,
     SYN,
     SYN_ACK,
     ESTABLISHED,
@@ -27,6 +27,7 @@ typedef enum
     A_FIN2,
     B_FIN2,
     B_ACK,
+    PROXY,
 } tcp_status_t;
 
 // This is a state of a TCP connection.
@@ -43,9 +44,7 @@ typedef struct
 typedef enum
 {
     NONE,
-    REG_HTTP,
-    FTP_CREATE,
-    FTP_DATA,
+    HTTP_FROM_INTERNAL_NETWORK,
 } proxy_state_t;
 
 typedef struct

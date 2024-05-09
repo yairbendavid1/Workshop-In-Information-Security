@@ -6,10 +6,7 @@
 #include "PacketHandler.h"
 #include "FWConnectionDevice.h"
 
-#define INT_NET_DEVICE_NAME "enp0s8"
-#define EXT_NET_DEVICE_NAME "enp0s9"
-#define FW_IN_LEG 167837955
-#define FW_OUT_LEG 167838211
+
 
 typedef struct
 {
@@ -51,8 +48,7 @@ int check_packet_port(__be16 packet_port, __be16 rule_port);
 int check_packet_ip(__be32 rule_ip, __be32 rule_prefix_mask, __u8 rule_prefix_size, __be32 packet_ip);
 int check_packet_ack(ack_t packet_ack, ack_t rule_ack);
 int check_for_special_cases(packet_information_t *packet);
-void print_log(log_row_t *log);
-void print_packet(__be32 *src_ip, __be32 *dst_ip, __be16 *src_port, __be16 *dst_port, __u8 *protocol, ack_t *ack, direction_t *direction, unsigned int is_syn_packet);
+
 
 
 #endif
