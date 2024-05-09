@@ -125,7 +125,7 @@ void route_proxy_packet(packet_information_t *packet_info){
             return;
         }
         // Now we can change the source IP and port to the original sender
-        iph->saddr = htonl(conn->outity.ip);
+        iph->saddr = conn->outity.ip;
         if (conn->proxy.proxy_state == HTTP_FROM_INTERNAL_NETWORK){
             tcph->source = htons(80);
             printk("HTTP\n");
