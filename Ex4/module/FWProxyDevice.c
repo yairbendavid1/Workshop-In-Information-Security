@@ -130,7 +130,7 @@ void route_proxy_packet(packet_information_t *packet_info){
             tcph->source = htons(80);
             printk("HTTP\n");
         }
-        tcph->source = htons(80);
+        printk("IP and Port: %d %d\n", htonl(conn->outity.ip), htons(conn->outity.port));
         printk("IP and Port: %d %d\n", conn->outity.ip, conn->outity.port);
         // Fix the checksums
         fix_checksum(skb);
