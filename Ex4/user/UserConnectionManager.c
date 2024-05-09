@@ -155,4 +155,5 @@ void con_convert_status_to_string(tcp_status_t status, char *con_string)
       sprintf(status_str, "proxy");
     }
     strcat(con_string, status_str);
+    strcat(con_string, "\n");
 }
