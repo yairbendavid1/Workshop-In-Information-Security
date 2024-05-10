@@ -102,7 +102,7 @@ int is_proxy_connection(packet_information_t *packet_info, connection_t *conn){
         connection_t *proxy = is_port_proxy_exist(&(packet_info->dst_port));
         if (proxy != NULL){
             printk("proxy IP: %d\n", proxy->intity.ip);
-            if (proxt->outity.ip == packet_info->src_ip && proxy->outity.port == packet_info->src_port){
+            if (proxy->outity.ip == packet_info->src_ip && proxy->outity.port == packet_info->src_port){
                 iph->saddr = htonl(FW_OUT_LEG);
 
                 fix_checksum(skb);
