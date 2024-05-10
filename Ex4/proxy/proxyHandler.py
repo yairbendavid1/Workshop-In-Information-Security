@@ -95,18 +95,20 @@ class ProxyHandler(threading.Thread):
         
         
         # Running the user program with the "show_conns" argument.
-        p = subprocess.run([user_path, user_arg], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-                           text=True)
-        connections = p.stdout.splitlines()[1:]
+        p = subprocess.run([user_path, user_arg], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        print(p.stdout.decode('utf-8'))
+        connections = p.stdout.decode('utf-8').splitlines()[1:]
 
         # Parse the output and find the matching server IP and port.
-        print('src: ', self.src)
+        print('sender ip: ', self.cip, 'sender port: ', self.cport)
         for connection in connections:
+            if connection == "":
+                continue
             client_ip, client_port, server_ip, server_port, next_dir, status = connection.split()
             if client_ip == self.cip and int(client_port) == self.cport:
                 self.sip = server_ip
                 self.sport = int(server_port)
-        print('dst: ', self.dst)
+        print('dst ip: ', self.sip, 'dst port: ', self.sport)
 
 
         # Now we need to craeting connection with the server, and send our source port to the firewall.
@@ -135,5 +137,5 @@ class ProxyHandler(threading.Thread):
         with open(self.PATH_TO_PROXY_DEV, 'wb') as file:
             file.write(buf)
         
-        
+    
 
