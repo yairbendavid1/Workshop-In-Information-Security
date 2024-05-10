@@ -29,9 +29,10 @@ class HTTPProxyHandler(ProxyHandler):
         
         # Extract header
         separator = '\r\n\r\n'  # indicates end of HTTP header
-        header_loc = message.index(separator)
-        header = message[0:header_loc]
-
+        #header_loc = message.index(separator)
+        # header = message[0:header_loc]
+        header = message
+        
         # Check if should block
         content_type = re.findall('Content-Type: (\S+)', header)
         print('Content type: {}'.format(content_type)) # debug
