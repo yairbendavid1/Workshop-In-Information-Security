@@ -98,14 +98,27 @@ int is_proxy_connection(packet_information_t *packet_info, connection_t *conn){
     else{
         // We are in the external->proxy case
         // In this case we need to change the source IP to the proxy IP
-        iph->saddr = htonl(FW_OUT_LEG);
+        printk("leg IP, dst port: %d, %d\n", htonl(FW_OUT_LEG), packet_info->dst_port);
+        connection_t *proxy = is_port_proxy_exist(&(packet_info->dst_port));
+        if (proxy != NULL){
+            printk("proxy IP: %d\n", proxy->intity.ip);
+            if (proxt->outity.ip == packet_info->src_ip && proxy->outity.port == packet_info->src_port){
+                iph->saddr = htonl(FW_OUT_LEG);
+
+                fix_checksum(skb);
+
+                print_message("E2P: Packet from External was proxied to FW\n");
+                return 1;
+            }
+        }
+        // iph->saddr = htonl(FW_OUT_LEG);
 
         // AS FOR NOW, WE DON'T SUPPORT PROXYING FROM EXTERNAL NETWORK
 
         // Fix the checksums
-        fix_checksum(skb);
-        print_message("E2P: Packet from External was proxied to FW\n");
-        return 1;
+        // fix_checksum(skb);
+        // print_message("E2P: Packet from External was proxied to FW\n");
+        // return 1;
     }
     // We should never reach here
     return 0;
