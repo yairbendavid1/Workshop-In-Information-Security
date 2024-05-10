@@ -41,7 +41,7 @@ class HTTPProxyHandler(ProxyHandler):
 
     def perform_client_connection(self):
         while self.is_alive() and not self.done:
-            request = self.recv_info(self.client_sock)
+            request = self.recv_info(self.csocket)
             if request:
                 self.ssocket.sendall(request.encode())
             else:
@@ -68,6 +68,8 @@ if __name__ == "__main__":
     sock.bind((FW_IN_LEG, FAKE_PORT))
     sock.listen(10)
     proxies = []
+
+
     print("\nStarting")
 
     while True:
