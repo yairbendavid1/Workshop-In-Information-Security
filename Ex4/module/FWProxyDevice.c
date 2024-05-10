@@ -45,6 +45,7 @@ connection_t *find_proxy_connection(packet_information_t *packet_info){
         // In this case, the server is in the external network
         if (conn->outity.ip == packet_info->src_ip && conn->outity.port == packet_info->src_port){
             print_message("find_proxy_connection: found proxy\n");
+            printk("intity IP: %d, intity port %d, outity IP: %d, outity port %d\n", conn->intity.ip, conn->intity.port, conn->outity.ip, conn->outity.port);
             return conn;
         }
     } 
@@ -69,6 +70,7 @@ int is_proxy_connection(packet_information_t *packet_info, connection_t *conn){
         }
     }
     if( conn->state.status != PROXY){ // If the connection is not a proxy connection, return 0
+        print_message("is_proxy_connection: not a proxy connection\n");
         return 0;
     }
     struct sk_buff *skb = packet_info->skb;
@@ -99,26 +101,26 @@ int is_proxy_connection(packet_information_t *packet_info, connection_t *conn){
         // We are in the external->proxy case
         // In this case we need to change the source IP to the proxy IP
         printk("leg IP, dst port: %d, %d\n", htonl(FW_OUT_LEG), packet_info->dst_port);
-        connection_t *proxy = is_port_proxy_exist(&(packet_info->dst_port));
-        if (proxy != NULL){
-            printk("proxy IP: %d\n", proxy->intity.ip);
-            if (proxy->outity.ip == packet_info->src_ip && proxy->outity.port == packet_info->src_port){
-                iph->saddr = htonl(FW_OUT_LEG);
+        // connection_t *proxy = is_port_proxy_exist(&(packet_info->dst_port));
+        // if (proxy != NULL){
+        //     printk("proxy IP: %d\n", proxy->intity.ip);
+        //     if (proxy->outity.ip == packet_info->src_ip && proxy->outity.port == packet_info->src_port){
+        //         iph->saddr = htonl(FW_OUT_LEG);
 
-                fix_checksum(skb);
+        //         fix_checksum(skb);
 
-                print_message("E2P: Packet from External was proxied to FW\n");
-                return 1;
-            }
-        }
-        // iph->saddr = htonl(FW_OUT_LEG);
+        //         print_message("E2P: Packet from External was proxied to FW\n");
+        //         return 1;
+        //     }
+        // }
+        iph->daddr = htonl(FW_OUT_LEG);
+        printk("at E2P, ")
+        //AS FOR NOW, WE DON'T SUPPORT PROXYING FROM EXTERNAL NETWORK
 
-        // AS FOR NOW, WE DON'T SUPPORT PROXYING FROM EXTERNAL NETWORK
-
-        // Fix the checksums
-        // fix_checksum(skb);
-        // print_message("E2P: Packet from External was proxied to FW\n");
-        // return 1;
+        //Fix the checksums
+        fix_checksum(skb);
+        print_message("E2P: Packet from External was proxied to FW\n");
+        return 1;
     }
     // We should never reach here
     return 0;
