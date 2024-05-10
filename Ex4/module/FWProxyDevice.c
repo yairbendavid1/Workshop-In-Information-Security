@@ -114,7 +114,7 @@ int is_proxy_connection(packet_information_t *packet_info, connection_t *conn){
         //     }
         // }
         iph->daddr = htonl(FW_OUT_LEG);
-        printk("at E2P, ")
+        printk("at E2P, daddt: %d\n", htonl(FW_OUT_LEG));
         //AS FOR NOW, WE DON'T SUPPORT PROXYING FROM EXTERNAL NETWORK
 
         //Fix the checksums
