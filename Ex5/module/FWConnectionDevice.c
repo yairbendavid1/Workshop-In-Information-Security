@@ -47,6 +47,7 @@ connection_t *insert_connection(__be32 *src_ip, __be32 *dst_ip, __be16 *src_port
     }
     proxy.proxy_port = 0;
     proxy.proxy_state = NONE;
+    proxy.side = NONE;
     conn->state.status = INIT;
     conn->proxy = proxy;
     conn->state.direction = next_direction(direction);

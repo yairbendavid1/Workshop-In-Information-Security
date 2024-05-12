@@ -45,13 +45,25 @@ typedef enum
 {
     NONE,
     HTTP_FROM_INTERNAL_NETWORK,
+    HTTP_FROM_EXTERNAL_NETWORK,
     FTP_DATA,
 } proxy_state_t;
+
+// This is a flag that indicate if a proxy connection started in the INTERNAL network or in the EXTERNAL network.
+// INTERNAL means that the client is in the internal network and the server is in the external network.
+// EXTERNAL means that the client is in the external network and the server is in the internal network.
+typedef enum
+{
+    NONE,
+    INTERNAL,
+    EXTERNAL,
+} side_t;
 
 typedef struct
 {
     __be16 proxy_port;
     proxy_state_t proxy_state;
+    side_t side;
 } proxy_t;
 
 // This is a connection entry in the connection table.

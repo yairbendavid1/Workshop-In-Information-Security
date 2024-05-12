@@ -11,7 +11,7 @@ extern __u32 connection_table_size;
 
 // This function is called on a newly created connection, and checks for a proxy connection.
 // IF the connection is a proxy connection, it will update the connection entry and the routing.
-// As for now, the function only checks for HTTP connections starting within the internal network.
+// As for now, the function only checks for HTTP connections starting within any network.
 // IT WILL SUPPORT FTP IN THE FUTURE, AND WILL BE EXTENDED TO SUPPORT OTHER PROTOCOLS IN THE NEXT EXERCISES.
 // The function will return 1 if the connection is a proxy connection, and 0 otherwise.
 int create_proxy(packet_information_t *packet_info, connection_t *conn){
@@ -21,6 +21,16 @@ int create_proxy(packet_information_t *packet_info, connection_t *conn){
         if (packet_info->dst_port == 80){ 
             conn->proxy.proxy_state = HTTP_FROM_INTERNAL_NETWORK;
             conn->state.status = PROXY;
+            conn->proxy.side = INTERNAL;
+            return is_proxy_connection(packet_info, conn);
+        }
+    }
+    if (packet_info->direction == DIRECTION_IN){
+        // We only support HTTP for now
+        if (packet_info->dst_port == 80){
+            conn->proxy.proxy_state = HTTP_FROM_EXTERNAL_NETWORK;
+            conn->state.status = PROXY;
+            conn->proxy.side = EXTERNAL;
             return is_proxy_connection(packet_info, conn);
         }
     }
@@ -49,6 +59,14 @@ connection_t *find_proxy_connection(packet_information_t *packet_info){
             return conn;
         }
     } 
+    if (conn->proxy.proxy_state == HTTP_FROM_EXTERNAL_NETWORK){
+        // In this case, the server is in the internal network
+        if (conn->intity.ip == packet_info->src_ip && conn->intity.port == packet_info->src_port){
+            print_message("find_proxy_connection: found proxy\n");
+            printk("intity IP: %d, intity port %d, outity IP: %d, outity port %d\n", conn->intity.ip, conn->intity.port, conn->outity.ip, conn->outity.port);
+            return conn;
+        }
+    }
     print_message("find_proxy_connection: can't find proxy\n");
     return NULL;
 }
@@ -73,13 +91,77 @@ int is_proxy_connection(packet_information_t *packet_info, connection_t *conn){
         print_message("is_proxy_connection: not a proxy connection\n");
         return 0;
     }
+    if (conn.proxy.side == INTERNAL){
+        print_message("is_proxy_connection: internal\n");
+        return route_internal_proxy_connections(packet_info, conn);
+    }
+    else{
+        print_message("is_proxy_connection: external\n");
+        return route_external_proxy_connections(packet_info, conn);
+    }
+    // struct sk_buff *skb = packet_info->skb;
+    // struct iphdr *iph = ip_hdr(skb);
+    // struct tcphdr *tcph = tcp_hdr(skb);
+
+    // // we need to check the directions
+    // if (packet_info->direction == DIRECTION_OUT){
+    //     // We are in the internal->proxy case
+    //     // In this case we need to change the destination IP to the proxy IP
+    //     iph->daddr = htonl(FW_IN_LEG);
+
+    //     // we also need to change the destination port (in some cases) to the proxy port 
+    //     // We need to check the proxy state to know which port to use
+    //     if (conn->proxy.proxy_state == HTTP_FROM_INTERNAL_NETWORK){
+    //         tcph->dest = htons(HTTP_FROM_INTERNAL_NETWORK_PORT);
+    //     }
+    //     else{
+    //         // We don't support other protocols for now
+    //         return 0;
+    //     }
+    //     // Fix the checksums
+    //     fix_checksum(skb);
+    //     print_message("I2P: Packet from internal was proxied to FW\n");
+    //     return 1;
+    // }
+    // else{
+    //     // We are in the external->proxy case
+    //     // In this case we need to change the destinaion IP to the proxy IP
+    //     printk("leg IP, dst port: %d, %d\n", htonl(FW_OUT_LEG), packet_info->dst_port);
+    //     // connection_t *proxy = is_port_proxy_exist(&(packet_info->dst_port));
+    //     // if (proxy != NULL){
+    //     //     printk("proxy IP: %d\n", proxy->intity.ip);
+    //     //     if (proxy->outity.ip == packet_info->src_ip && proxy->outity.port == packet_info->src_port){
+    //     //         iph->saddr = htonl(FW_OUT_LEG);
+
+    //     //         fix_checksum(skb);
+
+    //     //         print_message("E2P: Packet from External was proxied to FW\n");
+    //     //         return 1;
+    //     //     }
+    //     // }
+    //     iph->daddr = htonl(FW_OUT_LEG);
+    //     printk("at E2P, daddt: %d\n", htonl(FW_OUT_LEG));
+    //     //AS FOR NOW, WE DON'T SUPPORT PROXYING FROM EXTERNAL NETWORK
+
+    //     //Fix the checksums
+    //     fix_checksum(skb);
+    //     print_message("E2P: Packet from External was proxied to FW\n");
+    //     return 1;
+    // }
+    // // We should never reach here
+    // return 0;
+}
+
+// This function will handle and route packets that are part of a proxy connection with internal side.
+
+int route_internal_proxy_connections(packet_information_t *packet_info, connection_t *conn){
     struct sk_buff *skb = packet_info->skb;
     struct iphdr *iph = ip_hdr(skb);
     struct tcphdr *tcph = tcp_hdr(skb);
 
     // we need to check the directions
     if (packet_info->direction == DIRECTION_OUT){
-        // We are in the internal->proxy case
+        // We are in the internal->proxy case (client->server)
         // In this case we need to change the destination IP to the proxy IP
         iph->daddr = htonl(FW_IN_LEG);
 
@@ -98,21 +180,10 @@ int is_proxy_connection(packet_information_t *packet_info, connection_t *conn){
         return 1;
     }
     else{
-        // We are in the external->proxy case
-        // In this case we need to change the source IP to the proxy IP
+        // We are in the external->proxy case (server->client)
+        // In this case we need to change the destination IP to the proxy IP
         printk("leg IP, dst port: %d, %d\n", htonl(FW_OUT_LEG), packet_info->dst_port);
-        // connection_t *proxy = is_port_proxy_exist(&(packet_info->dst_port));
-        // if (proxy != NULL){
-        //     printk("proxy IP: %d\n", proxy->intity.ip);
-        //     if (proxy->outity.ip == packet_info->src_ip && proxy->outity.port == packet_info->src_port){
-        //         iph->saddr = htonl(FW_OUT_LEG);
-
-        //         fix_checksum(skb);
-
-        //         print_message("E2P: Packet from External was proxied to FW\n");
-        //         return 1;
-        //     }
-        // }
+        
         iph->daddr = htonl(FW_OUT_LEG);
         printk("at E2P, daddt: %d\n", htonl(FW_OUT_LEG));
         //AS FOR NOW, WE DON'T SUPPORT PROXYING FROM EXTERNAL NETWORK
@@ -120,6 +191,51 @@ int is_proxy_connection(packet_information_t *packet_info, connection_t *conn){
         //Fix the checksums
         fix_checksum(skb);
         print_message("E2P: Packet from External was proxied to FW\n");
+        return 1;
+    }
+    // We should never reach here
+    return 0;
+} 
+
+
+
+// This function will handle and route packets that are part of a proxy connection with external side.
+int route_external_proxy_connections(packet_information_t *packet_info, connection_t *conn){
+    struct sk_buff *skb = packet_info->skb;
+    struct iphdr *iph = ip_hdr(skb);
+    struct tcphdr *tcph = tcp_hdr(skb);
+    if (packet_info->direction == DIRECTION_IN){
+        // We are in the external->proxy case (client->server)
+        // In this case we need to change the destination IP to the proxy IP
+        iph->daddr = htonl(FW_OUT_LEG);
+
+        // we also need to change the destination port to the proxy port 
+        // We need to check the proxy state to know which port to use
+        if (conn->proxy.proxy_state == HTTP_FROM_EXTERNAL_NETWORK){
+            print_message("HTTP\n");
+            tcph->dest = htons(HTTP_FROM_EXTERNAL_NETWORK_PORT);
+        }
+        else{
+            // We don't support other protocols for now
+            return 0;
+        }
+        // Fix the checksums
+        fix_checksum(skb);
+        print_message("E2P: Packet from External was proxied to FW\n");
+        return 1;
+    }
+    else{
+        // We are in the external->proxy case (server->client)
+        // In this case we need to change the destination IP to the proxy IP
+        printk("leg IP, dst port: %d, %d\n", htonl(FW_OUT_LEG), packet_info->dst_port);
+        
+        iph->daddr = htonl(FW_IN_LEG);
+        printk("at I2P, daddt: %d\n", htonl(FW_OUT_LEG));
+        //AS FOR NOW, WE DON'T SUPPORT PROXYING FROM EXTERNAL NETWORK
+
+        //Fix the checksums
+        fix_checksum(skb);
+        print_message("I2P: Packet from Internal was proxied to FW\n");
         return 1;
     }
     // We should never reach here
