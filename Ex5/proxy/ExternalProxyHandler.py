@@ -100,13 +100,15 @@ class ExternalProxyHandler(threading.Thread):
         connections = p.stdout.decode('utf-8').splitlines()[1:]
 
         # Parse the output and find the matching server IP and port.
-        print('src: ', self.src)
+        print('sender ip: ', self.cip, 'sender port: ', self.cport)
         for connection in connections:
+            if connection == "":
+                continue
             client_ip, client_port, server_ip, server_port, next_dir, status = connection.split()
             if server_ip == self.cip and int(server_port) == self.cport:
                 self.sip = client_ip
                 self.sport = int(client_port)
-        print('dst: ', self.dst)
+        print('dst ip: ', self.sip, 'dst port: ', self.sport)
 
 
         # Now we need to craeting connection with the server, and send our source port to the firewall.

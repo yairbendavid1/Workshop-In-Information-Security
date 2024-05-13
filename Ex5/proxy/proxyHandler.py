@@ -102,6 +102,8 @@ class ProxyHandler(threading.Thread):
         # Parse the output and find the matching server IP and port.
         print('sender ip: ', self.cip, 'sender port: ', self.cport)
         for connection in connections:
+            if connection == "":
+                continue
             client_ip, client_port, server_ip, server_port, next_dir, status = connection.split()
             if client_ip == self.cip and int(client_port) == self.cport:
                 self.sip = server_ip
