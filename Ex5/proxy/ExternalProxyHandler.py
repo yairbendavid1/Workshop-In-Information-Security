@@ -39,21 +39,23 @@ class ExternalProxyHandler(threading.Thread):
         """
         # We first need to do the basic setup for the proxy connection.
         # it will fill the missing fields in the class, and will send the port to the firewall.
+        print('Setting up the proxy connection...')
         self.setup()
-
+        print('Proxy connection is set up!')
         # After the setup, we have the server's IP and port, and we can start the communication with the server.
         self.ssocket.connect((self.sip, self.sport))
-
+        print('Connected to the server!')
         # We then start the client and server threads.
         # each of them will be responsible for the communication with the client and server respectively.
         # starting with the client thread:
+        print('Starting the client and server threads...')
         self.client_connection = threading.Thread(target=self.perform_client_connection)
         self.client_connection.start()
-
+        print('Client thread started!')
         # and then the server thread:
         self.server_connection = threading.Thread(target=self.perform_server_connection)
         self.server_connection.start()
-
+        print('Server thread started!')
         # After the threads are done, we need to close the sockets.
         self.client_connection.join()
         self.server_connection.join()
@@ -133,10 +135,11 @@ class ExternalProxyHandler(threading.Thread):
         client_port = self.cport
         pack = struct.pack('<HHH', client_port, proxy_port, side) if sys.byteorder == 'little' else struct.pack('>HHH', client_port, proxy_port, side)
         buf = client_ip + pack
-
+        print("ready to send: ", buf)
         # and now we can write the data to the proxy device.
         with open(self.PATH_TO_PROXY_DEV, 'wb') as file:
             file.write(buf)
+        print("sent: ", buf)
         
         
 
