@@ -460,7 +460,7 @@ void fix_checksum(struct sk_buff *skb)
 // The function will extract the client ip and port and the proxy port and set the proxy port in the proxy table.
 ssize_t set_proxy_port(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
 {
-    __u16 bsize = sizeof(__be32) + 2 * sizeof(__be16);
+    __u16 bsize = sizeof(__be32) + 3 * sizeof(__be16);
     __be32 client_ip;
     __be16 client_port;
     __be16 proxy_port;
