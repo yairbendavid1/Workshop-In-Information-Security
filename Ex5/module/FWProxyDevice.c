@@ -19,6 +19,7 @@ int create_proxy(packet_information_t *packet_info, connection_t *conn){
     if (packet_info->direction == DIRECTION_OUT){
         // We only support HTTP for now
         if (packet_info->dst_port == 80){ 
+            print_message("create_proxy: HTTP-Internal\n")
             conn->proxy.proxy_state = HTTP_FROM_INTERNAL_NETWORK;
             conn->state.status = PROXY;
             conn->proxy.side = INTERNAL;
@@ -28,6 +29,7 @@ int create_proxy(packet_information_t *packet_info, connection_t *conn){
     if (packet_info->direction == DIRECTION_IN){
         // We only support HTTP for now
         if (packet_info->dst_port == 80){
+            print_message("create_proxy: HTTP-External\n")
             conn->proxy.proxy_state = HTTP_FROM_EXTERNAL_NETWORK;
             conn->state.status = PROXY;
             conn->proxy.side = EXTERNAL;
@@ -84,6 +86,7 @@ int is_proxy_connection(packet_information_t *packet_info, connection_t *conn){
     if (conn == NULL){ // If the connection is NULL, return 0
         conn = find_proxy_connection(packet_info);
         if (conn == NULL){
+            print_message("is_proxy_connection: connection is NULL\n");
             return 0;
         }
     }
