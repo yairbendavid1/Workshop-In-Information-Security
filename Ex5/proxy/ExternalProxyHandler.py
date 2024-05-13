@@ -6,7 +6,7 @@ import subprocess
 import os
 
 
-class ProxyHandler(threading.Thread):
+class ExternalProxyHandler(threading.Thread):
     """This class is a parent class for all the types of the proxies (HTTP, FTP, etc.)"""
 
     FW_IN_LEG = '10.1.1.3'  # used for the firewall to communicate with the inside world
@@ -18,7 +18,7 @@ class ProxyHandler(threading.Thread):
     @param adrr: The address list of the client, return by the accept() method of the socket.
     """
     def __init__(self, conn, addr):
-        super(ProxyHandler, self).__init__()
+        super(ExternalProxyHandler, self).__init__()
         self.csocket = conn # This is the socket with the client, used to send and receive data.
         self.ssocket = None # This is the socket with the server, used to send and receive data.
         self.cip = addr[0] # The client's IP address
@@ -103,9 +103,9 @@ class ProxyHandler(threading.Thread):
         print('src: ', self.src)
         for connection in connections:
             client_ip, client_port, server_ip, server_port, next_dir, status = connection.split()
-            if client_ip == self.cip and int(client_port) == self.cport:
-                self.sip = server_ip
-                self.sport = int(server_port)
+            if server_ip == self.cip and int(server_port) == self.cport:
+                self.sip = client_ip
+                self.sport = int(client_port)
         print('dst: ', self.dst)
 
 
@@ -113,12 +113,13 @@ class ProxyHandler(threading.Thread):
         
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM) # TCP socket
         # We need to bind the socket to a port, so we can send the port to the firewall.
-        sock.bind((self.FW_OUT_LEG, 0)) 
+        sock.bind((self.FW_IN_LEG, 0)) 
         self.ssocket = sock
-        side = 0
+
         # get the port we are using from the socket.
         proxy_addr = sock.getsockname()
         proxy_port = proxy_addr[1]
+        side = 1
 
         # and now need to send the port to the firewall.
         # The format of the message we need to send is:

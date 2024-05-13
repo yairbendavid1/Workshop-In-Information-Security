@@ -464,7 +464,7 @@ ssize_t set_proxy_port(struct device *dev, struct device_attribute *attr, const 
     __be32 client_ip;
     __be16 client_port;
     __be16 proxy_port;
-    int side;
+    __be16 side;
     direction_t direction;
     connection_t *conn;
 
