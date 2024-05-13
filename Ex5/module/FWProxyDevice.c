@@ -91,7 +91,7 @@ int is_proxy_connection(packet_information_t *packet_info, connection_t *conn){
         print_message("is_proxy_connection: not a proxy connection\n");
         return 0;
     }
-    if (conn.proxy.side == INTERNAL){
+    if (conn->proxy.side == INTERNAL){
         print_message("is_proxy_connection: internal\n");
         return route_internal_proxy_connections(packet_info, conn);
     }
@@ -148,8 +148,8 @@ int is_proxy_connection(packet_information_t *packet_info, connection_t *conn){
     //     print_message("E2P: Packet from External was proxied to FW\n");
     //     return 1;
     // }
-    // // We should never reach here
-    // return 0;
+    // We should never reach here
+    return 0;
 }
 
 // This function will handle and route packets that are part of a proxy connection with internal side.
