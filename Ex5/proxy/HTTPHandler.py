@@ -42,7 +42,7 @@ class HTTPProxyHandler(ProxyHandler):
 
     def perform_client_connection(self):
         while self.is_alive() and not self.done:
-            request = self.recv_info(self.client_sock)
+            request = self.recv_info(self.csocket)
             if request:
                 self.ssocket.sendall(request.encode())
             else:
