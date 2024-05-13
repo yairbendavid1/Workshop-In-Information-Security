@@ -54,7 +54,7 @@ typedef enum
 // EXTERNAL means that the client is in the external network and the server is in the internal network.
 typedef enum
 {
-    NONE,
+    NONE_SIDE,
     INTERNAL,
     EXTERNAL,
 } side_t;
