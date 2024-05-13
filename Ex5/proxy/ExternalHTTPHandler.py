@@ -66,7 +66,7 @@ if __name__ == "__main__":
     # Creating an HTTP proxy server
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # Enabling reuse the socket without time limitation
-    sock.bind((FW_OUT_LEGW, FAKE_PORT))
+    sock.bind((FW_OUT_LEG, FAKE_PORT))
     sock.listen(10)
     proxies = []
     print("\nStarting")
