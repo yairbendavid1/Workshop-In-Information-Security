@@ -215,7 +215,7 @@ int route_external_proxy_connections(packet_information_t *packet_info, connecti
         // we also need to change the destination port to the proxy port 
         // We need to check the proxy state to know which port to use
         if (conn->proxy.proxy_state == HTTP_FROM_EXTERNAL_NETWORK){
-            print_message("HTTP\n");
+            print_message("route_external_proxy_connections: HTTP\n");
             tcph->dest = htons(HTTP_FROM_EXTERNAL_NETWORK_PORT);
         }
         else{

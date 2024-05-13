@@ -67,6 +67,7 @@ unsigned int Pre_Routing_Handler(packet_information_t *packet){
 
     // if the packet is part of a proxy connection, we need to change the corresponding fields in the packet for the proxy.
     if (is_proxy_connection(packet, conn) == 1){
+        print_message("Proxy Connection is used\n"); // Debug
         add_log(&log_for_packet, REASON_PROXY, NF_ACCEPT);
         return NF_ACCEPT;
     }
