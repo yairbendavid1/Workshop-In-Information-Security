@@ -41,6 +41,7 @@ class ExternalHTTPProxyHandler(ExternalProxyHandler):
 
 
     def perform_client_connection(self):
+        print("Performing client connection")
         while self.is_alive() and not self.done:
             request = self.recv_info(self.csocket)
             if request:
@@ -50,6 +51,7 @@ class ExternalHTTPProxyHandler(ExternalProxyHandler):
 
 
     def perform_server_connection(self):
+        print("Performing server connection")
         while not self.done:
             response = self.recv_info(self.ssocket)
             if response:
