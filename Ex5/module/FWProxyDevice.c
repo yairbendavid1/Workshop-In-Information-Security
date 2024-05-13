@@ -480,10 +480,12 @@ ssize_t set_proxy_port(struct device *dev, struct device_attribute *attr, const 
     copy_from_buff_and_increase(&buf, &side, sizeof(side));
     if (side == 0)
     {
+        print_message("set_proxy_port: side is 0 - internal");
         direction = DIRECTION_IN;
     }
     else
     {
+        print_message("set_proxy_port: side is 1 - external");
         direction = DIRECTION_OUT;
     }
     conn = from_client_to_proxy_connection(&client_ip, &client_port, direction);
