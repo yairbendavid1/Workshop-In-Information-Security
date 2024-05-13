@@ -255,38 +255,97 @@ void route_proxy_packet(packet_information_t *packet_info){
     // we need to check the directions
     if (packet_info->direction == DIRECTION_OUT){
         // We are in the proxy->external case.
-
-        // In this case we need to change the source IP to IP of the original sender.
-        // To do so, we first need to find the connection of the original sender.
+        // we need to find the side of the proxy connection, if its a proxy.
+        // to do so, we will first check the proxy port table, and validate it with the packet information.
+        // if it doesn't match, we will try to find connection by the destination credentials.
         conn = is_port_proxy_exist(&(packet_info->src_port));
+        if (conn != NULL){
+            // we will check that the extity is the same as the destination of the packet since we dont clean the proxy table.
+            if (conn->outity.ip == packet_info->dst_ip && conn->outity.port == packet_info->dst_port){
+            // the side of the proxy is INTERNAL, and now we are intercating with the "server" of the connection.
+            // thus, we only need to change the source IP to the original source IP
+            iph->saddr = conn->intity.ip;
+            // Fix the checksums
+            fix_checksum(skb);
+            print_message("P2E: Source of Proxied Packet from FW to External has been changed.\n");
+            return;
+            } 
+            
+        }
+        // if we reached here, it means that the connection is not in the proxy table.
+        // so we will try to check if the destination is in the connection table. 
+        conn = from_client_to_proxy_connection(&(packet_info->dst_ip), &(packet_info->dst_port), DIRECTION_OUT);
         if (conn == NULL){
+            // if the connection is not in the proxy table, and cannot be find by the destination credentials, we will return as its not a proxy connection.
             print_message("P2E: route_proxy_packet: can't find proxy");
             return;
         }
-        // we will check that the extity is the same as the destination of the packet since we dont clean the proxy table.
-        if (conn->outity.ip != packet_info->dst_ip || conn->outity.port != packet_info->dst_port){
-            print_message("P2E: route_proxy_packet: connection doesn't match");
-            return;
-        } 
+        // if we reached here, it means that the side of the proxy is external, and we are interacting with the "client" of the connection.
+        // so, we need to change both ip and port to be the original sender credentials.
 
-        // Now we can change the source IP to the original source IP
         iph->saddr = conn->intity.ip;
+        if (conn->proxy.proxy_state == HTTP_FROM_EXTERNAL_NETWORK){
+            tcph->source = htons(80);
+            printk("HTTP\n");
+        }
+        printk("IP and Port: %d %d\n", htonl(conn->intity.ip), htons(conn->intity.port));
+        printk("IP and Port: %d %d\n", conn->intity.ip, conn->intity.port);
         // Fix the checksums
         fix_checksum(skb);
         print_message("P2E: Source of Proxied Packet from FW to External has been changed.\n");
         return;
+        
+        
+        
+        
+        // conn = is_port_proxy_exist(&(packet_info->src_port));
+        // if (conn == NULL){
+        //     print_message("P2E: route_proxy_packet: can't find proxy");
+        //     return;
+        // }
+        // // we will check that the extity is the same as the destination of the packet since we dont clean the proxy table.
+        // if (conn->outity.ip != packet_info->dst_ip || conn->outity.port != packet_info->dst_port){
+        //     print_message("P2E: route_proxy_packet: connection doesn't match");
+        //     return;
+        // } 
+
+        // // Now we can change the source IP to the original source IP
+        // iph->saddr = conn->intity.ip;
+        // // Fix the checksums
+        // fix_checksum(skb);
+        // print_message("P2E: Source of Proxied Packet from FW to External has been changed.\n");
+        // return;
     }
     else{
-        // We are in the proxy->internal case
-        // In this case we need to change both the IP and the port of the packet to the original sender
-
-        // To do so, we first need to find the connection of the original sender using the client credentials.
-        conn = from_client_to_proxy_connection(&(packet_info->dst_ip), &(packet_info->dst_port));
+        // We are in the proxy->internal case.
+        // we need to find the side of the proxy connection, if its a proxy.
+        // to do so, we will first check the proxy port table, and validate it with the packet information.
+        // if it doesn't match, we will try to find connection by the destination credentials.
+        conn = is_port_proxy_exist(&(packet_info->src_port));
+        if (conn != NULL){
+            // we will check that the intity is the same as the destination of the packet since we dont clean the proxy table.
+            if (conn->intity.ip == packet_info->dst_ip && conn->intity.port == packet_info->dst_port){
+            // the side of the proxy is INTERNAL, and now we are intercating with the "server" of the connection.
+            // thus, we only need to change the source IP to the original source IP
+            iph->saddr = conn->outity.ip;
+            // Fix the checksums
+            fix_checksum(skb);
+            print_message("P2I: Source of Proxied Packet from FW to Internal has been changed.\n");
+            return;
+            } 
+            
+        }
+        // if we reached here, it means that the connection is not in the proxy table.
+        // so we will try to check if the destination is in the connection table. 
+        conn = from_client_to_proxy_connection(&(packet_info->dst_ip), &(packet_info->dst_port), DIRECTION_IN);
         if (conn == NULL){
+            // if the connection is not in the proxy table, and cannot be find by the destination credentials, we will return as its not a proxy connection.
             print_message("P2I: route_proxy_packet: can't find proxy");
             return;
         }
-        // Now we can change the source IP and port to the original sender
+        // if we reached here, it means that the side of the proxy is internal, and we are interacting with the "client" of the connection.
+        // so, we need to change both ip and port to be the original sender credentials.
+
         iph->saddr = conn->outity.ip;
         if (conn->proxy.proxy_state == HTTP_FROM_INTERNAL_NETWORK){
             tcph->source = htons(80);
@@ -298,20 +357,56 @@ void route_proxy_packet(packet_information_t *packet_info){
         fix_checksum(skb);
         print_message("P2I: Source of Proxied Packet from FW to Internal has been changed.\n");
         return;
+
+
+
+
+
+        // To do so, we first need to find the connection of the original sender using the client credentials.
+        // conn = from_client_to_proxy_connection(&(packet_info->dst_ip), &(packet_info->dst_port), DIRECTION_IN);
+        // if (conn == NULL){
+        //     print_message("P2I: route_proxy_packet: can't find proxy");
+        //     return;
+        // }
+        // // Now we can change the source IP and port to the original sender
+        // iph->saddr = conn->outity.ip;
+        // if (conn->proxy.proxy_state == HTTP_FROM_INTERNAL_NETWORK){
+        //     tcph->source = htons(80);
+        //     printk("HTTP\n");
+        // }
+        // printk("IP and Port: %d %d\n", htonl(conn->outity.ip), htons(conn->outity.port));
+        // printk("IP and Port: %d %d\n", conn->outity.ip, conn->outity.port);
+        // // Fix the checksums
+        // fix_checksum(skb);
+        // print_message("P2I: Source of Proxied Packet from FW to Internal has been changed.\n");
+        // return;
     }
     return;
 }
 
 
-connection_t *from_client_to_proxy_connection(__be32 *client_ip, __be16 *client_port){
+connection_t *from_client_to_proxy_connection(__be32 *client_ip, __be16 *client_port, direction_t direction){
     connection_t *conn;
-    list_for_each_entry(conn, &connection_table, node){
-        if (conn->intity.ip == *client_ip && conn->intity.port == *client_port){
-            return conn;
+    if (direction == DIRECTION_IN){
+        list_for_each_entry(conn, &connection_table, node){
+            if (conn->intity.ip == *client_ip && conn->intity.port == *client_port){
+                return conn;
+            }
+        }
+    }
+    else{
+        list_for_each_entry(conn, &connection_table, node){
+            if (conn->outity.ip == *client_ip && conn->outity.port == *client_port){
+                return conn;
+            }
         }
     }
     return NULL;
 }
+
+
+
+
 
 connection_t *is_port_proxy_exist(__be16 *proxy_port){
     return proxy_table[*proxy_port];
@@ -361,7 +456,7 @@ void fix_checksum(struct sk_buff *skb)
 // This function is the store function for the proxy port attribute
 // Its called when the user writes to the proxy port attribute
 // The user will send the buffer with the proxy port and the client ip and port
-// The format of the buffer is (client_ip, client_port, proxy_port)
+// The format of the buffer is (client_ip, client_port, proxy_port, direction)
 // The function will extract the client ip and port and the proxy port and set the proxy port in the proxy table.
 ssize_t set_proxy_port(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
 {
@@ -369,6 +464,8 @@ ssize_t set_proxy_port(struct device *dev, struct device_attribute *attr, const 
     __be32 client_ip;
     __be16 client_port;
     __be16 proxy_port;
+    int side;
+    direction_t direction;
     connection_t *conn;
 
     if (count < bsize)
@@ -380,8 +477,16 @@ ssize_t set_proxy_port(struct device *dev, struct device_attribute *attr, const 
     copy_from_buff_and_increase(&buf, &client_ip, sizeof(client_ip));
     copy_from_buff_and_increase(&buf, &client_port, sizeof(client_port));
     copy_from_buff_and_increase(&buf, &proxy_port, sizeof(proxy_port));
-    
-    conn = from_client_to_proxy_connection(&client_ip, &client_port);
+    copy_from_buff_and_increase(&buf, &side, sizeof(side));
+    if (side == 0)
+    {
+        direction = DIRECTION_IN;
+    }
+    else
+    {
+        direction = DIRECTION_OUT;
+    }
+    conn = from_client_to_proxy_connection(&client_ip, &client_port, direction);
     if (conn == NULL)
     {
         print_message("set_proxy_port: can't find proxy");
