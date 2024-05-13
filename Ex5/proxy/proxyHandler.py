@@ -95,9 +95,9 @@ class ProxyHandler(threading.Thread):
         
         
         # Running the user program with the "show_conns" argument.
-        p = subprocess.run([user_path, user_arg], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-                           text=True)
-        connections = p.stdout.splitlines()[1:]
+        p = subprocess.run([user_path, user_arg], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        print(p.stdout.decode('utf-8'))
+        connections = p.stdout.decode('utf-8').splitlines()[1:]
 
         # Parse the output and find the matching server IP and port.
         print('src: ', self.src)
