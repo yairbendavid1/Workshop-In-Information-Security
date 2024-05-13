@@ -19,7 +19,7 @@ int create_proxy(packet_information_t *packet_info, connection_t *conn){
     if (packet_info->direction == DIRECTION_OUT){
         // We only support HTTP for now
         if (packet_info->dst_port == 80){ 
-            print_message("create_proxy: HTTP-Internal\n")
+            print_message("create_proxy: HTTP-Internal\n");
             conn->proxy.proxy_state = HTTP_FROM_INTERNAL_NETWORK;
             conn->state.status = PROXY;
             conn->proxy.side = INTERNAL;
@@ -29,7 +29,7 @@ int create_proxy(packet_information_t *packet_info, connection_t *conn){
     if (packet_info->direction == DIRECTION_IN){
         // We only support HTTP for now
         if (packet_info->dst_port == 80){
-            print_message("create_proxy: HTTP-External\n")
+            print_message("create_proxy: HTTP-External\n");
             conn->proxy.proxy_state = HTTP_FROM_EXTERNAL_NETWORK;
             conn->state.status = PROXY;
             conn->proxy.side = EXTERNAL;
