@@ -84,7 +84,7 @@ if __name__ == "__main__":
             break
 
         print("\nConnection accepted")
-        proxy = ExternalProxyHandler(connection, addr)
+        proxy = ExternalHTTPProxyHandler(connection, addr)
         proxies.append(proxy)
         proxy.start()
 
