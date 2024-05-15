@@ -51,6 +51,18 @@ class ISPHandler(ExternalProxyHandler):
 
         return False if content_type and (content_type[0] in ['text/csv', 'application/zip']) else True
 
+    def print_with_line_markers(self, text):
+        """
+        This function takes a text string and prints it with markers to indicate the positions of newline (\n) and carriage return (\r) characters.
+        """
+        position = 0
+        for char in text:
+            print(char, end="")  # Print the character
+            if char == "\n":
+                print(" (NEWLINE)")  # Marker for newline
+            elif char == "\r":
+                print(" (CARRIAGE RETURN)")  # Marker for carriage return
+            position += 1  # Update position
 
     
 
@@ -59,12 +71,14 @@ class ISPHandler(ExternalProxyHandler):
         while self.is_alive() and not self.done:
             request = self.recv_info(self.csocket)
             if request:
-                print("\nRequest Recieved: \n", request)
+                print("\nRequest Recieved: ")
+                self.print_with_line_markers(request)
                 # Remove lines with prefix "X-WCPAY-PLATFORM-CHECKOUT-USER:"
-                request = self.remove_lines_with_prefix(request)
+                request2 = self.remove_lines_with_prefix(request)
                 
                 self.ssocket.sendall(request.encode())
-                print("\nRequest Sent: \n", request)
+                print("\nRequest Sent: ")
+                self.print_with_line_markers(request2)
             else:
                 self.done = True
 
