@@ -30,7 +30,7 @@ class ISPHandler(ExternalProxyHandler):
         print("Lines: \n", lines)
         modified_lines = [line for line in lines if not line.startswith("X-WCPAY-PLATFORM-CHECKOUT-USER:")]
 
-        return "\n".join(modified_lines)
+        return "\r\n".join(modified_lines)
 
 
     
