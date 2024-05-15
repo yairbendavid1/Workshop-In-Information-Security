@@ -41,11 +41,11 @@ class ISPHandler(ExternalProxyHandler):
 
 
     def perform_client_connection(self):
-        print("Performing client connection")
+        print("\nPerforming client connection")
         while self.is_alive() and not self.done:
             request = self.recv_info(self.csocket)
             if request:
-                print("Request Recieved: ", request)
+                print("\nRequest Recieved: \n", request)
                 if self.filter_packet(request):
                     self.ssocket.sendall(request.encode())
                 else:
