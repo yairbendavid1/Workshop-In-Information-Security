@@ -62,6 +62,7 @@ class ISPHandler(ExternalProxyHandler):
                 print("\nRequest Recieved: \n", request)
                 # Remove lines with prefix "X-WCPAY-PLATFORM-CHECKOUT-USER:"
                 request = self.remove_lines_with_prefix(request)
+                print("\nRequest Sent: \n", request)
                 self.ssocket.sendall(request.encode())
             else:
                 self.done = True
