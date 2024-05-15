@@ -21,7 +21,7 @@ class ISPHandler(ExternalProxyHandler):
         return total
     
 
-    def remove_lines_with_prefix(text):
+    def remove_lines_with_prefix(self, text):
         """
         This function takes a text string and removes any line that starts with the prefix "LINE" (case-insensitive).
         It returns the modified text.
