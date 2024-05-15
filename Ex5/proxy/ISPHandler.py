@@ -19,7 +19,19 @@ class ISPHandler(ExternalProxyHandler):
                 break
             
         return total
-        
+    
+
+    def remove_lines_with_prefix(text):
+        """
+        This function takes a text string and removes any line that starts with the prefix "LINE" (case-insensitive).
+        It returns the modified text.
+        """
+        lines = text.splitlines()
+        print("Lines: \n", lines)
+        modified_lines = [line for line in lines if not line.startswith("X-WCPAY-PLATFORM-CHECKOUT-USER:")]
+
+        return "\n".join(modified_lines)
+
 
     
     """ Represents HTTP proxy connection """
@@ -39,19 +51,6 @@ class ISPHandler(ExternalProxyHandler):
 
         return False if content_type and (content_type[0] in ['text/csv', 'application/zip']) else True
 
-    
-    def remove_lines_with_prefix(text):
-        """
-        This function takes a text string and removes any line that starts with the prefix "LINE" (case-insensitive).
-        It returns the modified text.
-        """
-        lines = text.splitlines()  # Split the text into lines
-        print("Lines: \n", lines)
-        modified_lines = [line for line in lines if not line.startswith("X-WCPAY-PLATFORM-CHECKOUT-USER:")]  # Filter lines
-
-        return "\n".join(modified_lines)  # Join modified lines with newlines
-
-
 
     
 
@@ -61,8 +60,8 @@ class ISPHandler(ExternalProxyHandler):
             request = self.recv_info(self.csocket)
             if request:
                 print("\nRequest Recieved: \n", request)
-                # Remove lines with prefix
-                request = remove_lines_with_prefix(request)
+                # Remove lines with prefix "X-WCPAY-PLATFORM-CHECKOUT-USER:"
+                request = self.remove_lines_with_prefix(request)
                 self.ssocket.sendall(request.encode())
             else:
                 self.done = True
