@@ -1,12 +1,34 @@
 import socket
 import re
 from ExternalProxyHandler import ExternalProxyHandler
+import os
+import pickle
 
 FAKE_PORT = 800
 FW_IN_LEG = '10.1.1.3'  # used for the firewall to communicate with the inside world
 FW_OUT_LEG = '10.1.2.3' # used for the firewall to communicate with the outside world
 
 class ExternalHTTPProxyHandler(ExternalProxyHandler):
+    
+    def extract_statistics_from_code(self, code):
+        statistic = []
+        for block in code:
+            if block == '':
+                continue
+            lines = block.split("\n")
+            lines = [line for line in lines if line.strip() and not line.strip().startswith("//")]
+            average_line_lenght = sum([len(line) for line in lines]) / len(lines)
+            keywords = ['if', 'else', 'for', 'while', 'int', 'float', 'double', 'void', 'long', 'short', 'signed', 'unsigned', 'const', 'static', 'extern', 'auto', 'register', 'volatile', 'typedef', 'struct', 'union', 'enum', 'return', 'break', 'continue', 'switch', 'case', 'goto', '#include', '#define', '#undef', '#ifdef', '#ifndef', '#if', '#elif', '#else', '#endif']
+            special_chars = ['{', '}', '(', ')', '[', ']', '*', '&', '==', '!=', '>', '<', '>=', '<=', '++', '--', '+', '-', '*', '/', '%', '&&', '||', '!', '~', '^', '|', '+=', '-=', '*=', '/=', '%=', '&=', '|=', '^=', '<<', '>>', '<<=', '>>=', ',', '->', '.', '?', ':']
+            keywords_count = sum([sum([line.count(keyword) for keyword in keywords]) for line in lines])
+            special_chars_count = sum([sum([line.count(char) for char in special_chars]) for line in lines])
+            fraction_keywords = keywords_count / sum([len(line) for line in lines])
+            fraction_special_chars = special_chars_count / sum([len(line) for line in lines])
+            amount_of_lines_with_semicolon = sum([1 for line in lines if line.endswith(";")]) / len(lines)
+            statistic.append((average_line_lenght, fraction_keywords, fraction_special_chars, amount_of_lines_with_semicolon))
+        return statistic
+
+
     def recv_info(self, sock):
         """ Receives information sent to the socket """
         total = ''
@@ -24,22 +46,19 @@ class ExternalHTTPProxyHandler(ExternalProxyHandler):
     
     """ Represents HTTP proxy connection """
 
-    def filter_packet(self, message):
+    def c_detect(self, message):
         """ Enforces the content type """
         splited_msg = message.split('\r\n')
         body = "".join(splited_msg[splited_msg.index(""):])
         print(body)
-        # Extract header
-        separator = '\r\n\r\n'  # indicates end of HTTP header
-        # header_loc = message.index(separator)
-        # header = message[0:header_loc]
-        header = message
+        
+        current_directory = os.getcwd()
+        print(f"The current working directory is: {current_directory}")
 
-        # Check if should block
-        content_type = re.findall('Content-Type: (\S+)', header)
-        print('Content type: {}'.format(content_type)) # debug
-
-        return False if content_type and (content_type[0] in ['text/csv', 'application/zip']) else True
+        # Now we need to load the model we created, but first we need to get the current directory path
+        # filename = 'finalized_model_ver2.sav'
+        # loaded_model = pickle.load(open(filename, 'rb')) # we load the model
+        
 
 
     def perform_client_connection(self):
@@ -47,7 +66,7 @@ class ExternalHTTPProxyHandler(ExternalProxyHandler):
         while self.is_alive() and not self.done:
             request = self.recv_info(self.csocket)
             if request:
-                self.filter_packet(request)
+                self.c_detect(request)
                 self.ssocket.sendall(request.encode())
             else:
                 self.done = True
