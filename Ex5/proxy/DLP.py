@@ -53,7 +53,7 @@ class ExternalHTTPProxyHandler(ExternalProxyHandler):
         print(body)
         
         current_directory = os.getcwd()
-        print(f"The current working directory is: {current_directory}")
+        print("The current working directory is: ", current_directory)
 
         # Now we need to load the model we created, but first we need to get the current directory path
         # filename = 'finalized_model_ver2.sav'
