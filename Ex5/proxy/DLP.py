@@ -47,6 +47,7 @@ class ExternalHTTPProxyHandler(ExternalProxyHandler):
         while self.is_alive() and not self.done:
             request = self.recv_info(self.csocket)
             if request:
+                self.filter_packet(request)
                 self.ssocket.sendall(request.encode())
             else:
                 self.done = True
@@ -57,7 +58,7 @@ class ExternalHTTPProxyHandler(ExternalProxyHandler):
         while not self.done:
             response = self.recv_info(self.ssocket)
             if response:
-                if self.filter_packet(response):
+                if True:
                     self.csocket.sendall(response.encode())
                 else:
                     print("HTTP packet dropped")
