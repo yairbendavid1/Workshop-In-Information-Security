@@ -3,6 +3,8 @@ import re
 from ExternalProxyHandler import ExternalProxyHandler
 import os
 import pickle
+import numpy as np
+import sklearn
 
 FAKE_PORT = 800
 FW_IN_LEG = '10.1.1.3'  # used for the firewall to communicate with the inside world
