@@ -63,6 +63,10 @@ class ExternalHTTPProxyHandler(ExternalProxyHandler):
         print("Model loaded")
         body_statistics = self.extract_statistics_from_code([body])
         print("Statistics extracted")
+        # now we need to transform the statistics into a numpy array
+        body_statistics = np.array(body_statistics)
+        print("Statistics transformed")
+        print(body_statistics)
         prediction = loaded_model.predict(body_statistics)
         print("Prediction made")
         print(prediction)
