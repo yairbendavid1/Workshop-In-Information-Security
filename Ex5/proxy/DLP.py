@@ -53,11 +53,17 @@ class ExternalHTTPProxyHandler(ExternalProxyHandler):
         print(body)
         
         current_directory = os.getcwd()
-        print("The current working directory is: ", current_directory)
+        model_name = 'finalized_model_ver2.sav'
+        path = current_directory + "/" + model_name
+        print(path)
 
-        # Now we need to load the model we created, but first we need to get the current directory path
-        # filename = 'finalized_model_ver2.sav'
-        # loaded_model = pickle.load(open(filename, 'rb')) # we load the model
+        loaded_model = pickle.load(open(path, 'rb')) # we load the model
+        print("Model loaded")
+        body_statistics = self.extract_statistics_from_code([body])
+        print("Statistics extracted")
+        prediction = loaded_model.predict(body_statistics)
+        print("Prediction made")
+        print(prediction)
         
 
 
