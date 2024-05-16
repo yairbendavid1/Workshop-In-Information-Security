@@ -1,0 +1,102 @@
+import numpy as np
+from sklearn.svm import SVC
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+import pickle
+
+
+def read_tuples_from_file(filename):
+  """
+  Reads a text file containing lines of tuples and returns a list of tuples.
+
+  Args:
+      filename (str): The path to the text file.
+
+  Returns:
+      list: A list of tuples, where each tuple represents a line from the file.
+  """
+  all_tuples = []
+  with open(filename, 'r') as f:
+    for line in f:
+      # Remove trailing whitespace and newline character
+      line = line.strip()
+      # Skip empty lines
+      if not line:
+        continue
+      
+      # Evaluate the line as a Python expression to convert it to a tuple
+      # This assumes your tuples are valid Python tuples
+      try:
+        data_tuple = eval(line)
+      except SyntaxError:
+        print("Error parsing line: ", line)
+        continue
+      
+      # Ensure data_tuple is a tuple with 4 elements
+      if not isinstance(data_tuple, tuple) or len(data_tuple) != 4:
+        print("Invalid tuple format: ", line)
+        continue
+      
+      all_tuples.append(data_tuple)
+  return all_tuples
+
+
+def read_labels_from_file(filename):
+  """
+  Reads a text file containing lines with single numbers (0 or 1) and returns a list of integers.
+
+  Args:
+      filename (str): The path to the text file.
+
+  Returns:
+      list: A list of integers, where each integer represents a number from the file.
+  """
+  labels = []
+  with open(filename, 'r') as f:
+    for line in f:
+      # Remove trailing whitespace and newline character
+      line = line.strip()
+      # Skip empty lines
+      if not line:
+        continue
+      
+      try:
+        # Convert the line to an integer (assuming it's either 0 or 1)
+        label = int(line)
+        if label not in (0, 1):
+          print("Invalid label value: ", line)
+          continue
+      except ValueError:
+        print("Error parsing line: ", line)
+        continue
+      
+      labels.append(label)
+  return labels
+
+
+#we want to extract the data.txt file and read the tuples from it.
+#we will use the read_tuples_from_file function to read the tuples from the file and store them in a list.
+#we will then print the list of tuples to verify that the data was read correctly.
+data = read_tuples_from_file("data.txt")
+labels = read_labels_from_file("labels.txt")
+
+
+# we first need to make numpy arrays from the data and labels
+X = np.array(data)
+y = np.array(labels)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+model = SVC(kernel='linear', probability=True)
+model.fit(X_train, y_train)
+
+# Evaluation
+y_pred = model.predict(X_test)
+accuracy = accuracy_score(y_test, y_pred)
+print("Accuracy:", accuracy)
+# save the model to disk
+filename = 'tester_from_extractor.sav'
+pickle.dump(model, open(filename, 'wb'))
+# load the model from disk
+loaded_model = pickle.load(open(filename, 'rb'))
+result = loaded_model.score(X_test, y_test)
+print(result)
