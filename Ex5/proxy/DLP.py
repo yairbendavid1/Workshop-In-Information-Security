@@ -11,66 +11,65 @@ FW_IN_LEG = '10.1.1.3'  # used for the firewall to communicate with the inside w
 FW_OUT_LEG = '10.1.2.3' # used for the firewall to communicate with the outside world
 
 class ExternalHTTPProxyHandler(ExternalProxyHandler):
-    
-    def extract_statistics_from_code(self, code):
-        statistic = []
-        for block in code:
-            if block == '':
-                continue
-            lines = block.split("\n")
-            lines = [line for line in lines if line.strip() and not line.strip().startswith("//")]
-            average_line_lenght = sum([len(line) for line in lines]) / len(lines)
-            keywords = ['if', 'else', 'for', 'while', 'int', 'float', 'double', 'void', 'long', 'short', 'signed', 'unsigned', 'const', 'static', 'extern', 'auto', 'register', 'volatile', 'typedef', 'struct', 'union', 'enum', 'return', 'break', 'continue', 'switch', 'case', 'goto', '#include', '#define', '#undef', '#ifdef', '#ifndef', '#if', '#elif', '#else', '#endif']
-            special_chars = ['{', '}', '(', ')', '[', ']', '*', '&', '==', '!=', '>', '<', '>=', '<=', '++', '--', '+', '-', '*', '/', '%', '&&', '||', '!', '~', '^', '|', '+=', '-=', '*=', '/=', '%=', '&=', '|=', '^=', '<<', '>>', '<<=', '>>=', ',', '->', '.', '?', ':']
-            keywords_count = sum([sum([line.count(keyword) for keyword in keywords]) for line in lines])
-            special_chars_count = sum([sum([line.count(char) for char in special_chars]) for line in lines])
-            fraction_keywords = keywords_count / sum([len(line) for line in lines])
-            fraction_special_chars = special_chars_count / sum([len(line) for line in lines])
-            amount_of_lines_with_semicolon = sum([1 for line in lines if line.endswith(";")]) / len(lines)
-            statistic.append((average_line_lenght, fraction_keywords, fraction_special_chars, amount_of_lines_with_semicolon))
-        return statistic
+
+    def get_statistic_from_single_msg(self, msg):
+        lines = msg.split("\n")
+        lines = [line for line in lines if line.strip() and not line.strip().startswith("//")]
+        average_line_lenght = sum([len(line) for line in lines]) / len(lines)
+        keywords = ['if', 'else', 'for', 'while', 'int', 'float', 'double', 'void', 'long', 'short', 'signed', 'unsigned', 'const', 'static', 'extern', 'auto', 'register', 'volatile', 'typedef', 'struct', 'union', 'enum', 'return', 'break', 'continue', 'switch', 'case', 'goto', '#include', '#define', '#undef', '#ifdef', '#ifndef', '#if', '#elif', '#else', '#endif']
+        special_chars = ['{', '}', '(', ')', '[', ']', '*', '&', '==', '!=', '>', '<', '>=', '<=', '++', '--', '+', '-', '*', '/', '%', '&&', '||', '!', '~', '^', '|', '+=', '-=', '*=', '/=', '%=', '&=', '|=', '^=', '<<', '>>', '<<=', '>>=', ',', '->', '.', '?', ':']
+        keywords_count = sum([sum([line.count(keyword) for keyword in keywords]) for line in lines])
+        special_chars_count = sum([sum([line.count(char) for char in special_chars]) for line in lines])
+        fraction_keywords = keywords_count / sum([len(line) for line in lines])
+        fraction_special_chars = special_chars_count / sum([len(line) for line in lines])
+        amount_of_lines_with_semicolon = sum([1 for line in lines if line.endswith(";")]) / len(lines)
+        return [(average_line_lenght, fraction_keywords, fraction_special_chars, amount_of_lines_with_semicolon)]
 
 
     def recv_info(self, sock):
         """ Receives information sent to the socket """
         total = ''
         size = 512
-        
+
         while True:
             current = sock.recv(size)
             total += current.decode()
             if len(current) < size:
                 break
-            
-        return total
-        
 
-    
+        return total
+
+
+
     """ Represents HTTP proxy connection """
 
     def c_detect(self, message):
         """ Enforces the content type """
         splited_msg = message.split('\r\n')
-        body = "".join(splited_msg[splited_msg.index(""):])
+        ind = splited_msg.index("")
+        body = "\n".join(splited_msg[ind+1:])
         print(body)
-        
+        print(len(splited_msg[ind+1:]))
+
         current_directory = os.getcwd()
-        model_name = 'finalized_model_ver2.sav'
+        model_name = 'tester_from_extractor.sav'
         path = current_directory + "/" + model_name
         print(path)
 
         loaded_model = pickle.load(open(path, 'rb')) # we load the model
         print("Model loaded")
-        body_statistics = self.extract_statistics_from_code([body])
+        body_statistics = self.get_statistic_from_single_msg(body)
         print("Statistics extracted")
-        # now we need to transform the statistics into a numpy array
-        body_statistics = np.array(body_statistics)
-        print("Statistics transformed")
         print(body_statistics)
-        prediction = loaded_model.predict(body_statistics)
+        # now we need to transform the statistics into a numpy array
+        data = np.array(body_statistics)
+        print("Statistics transformed")
+
+        prediction = loaded_model.predict(data)
         print("Prediction made")
         print(prediction)
-        
+        return int(prediction[0]) == 1
+
 
 
     def perform_client_connection(self):
@@ -78,8 +77,10 @@ class ExternalHTTPProxyHandler(ExternalProxyHandler):
         while self.is_alive() and not self.done:
             request = self.recv_info(self.csocket)
             if request:
-                self.c_detect(request)
-                self.ssocket.sendall(request.encode())
+                if self.c_detect(request):
+                    print("PACKET_DROPED")
+                else:
+                    self.ssocket.sendall(request.encode())
             else:
                 self.done = True
 
@@ -123,6 +124,3 @@ if __name__ == "__main__":
         proxy.start()
 
     print("\nFinished")
-
-
-    
