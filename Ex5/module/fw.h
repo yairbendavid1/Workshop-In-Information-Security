@@ -20,6 +20,7 @@
 #define FW_OUT_LEG 167838211
 #define HTTP_FROM_INTERNAL_NETWORK_PORT 800
 #define HTTP_FROM_EXTERNAL_NETWORK_PORT 800
+#define SMTP_PORT 25
 
 
 // the protocols we will work with

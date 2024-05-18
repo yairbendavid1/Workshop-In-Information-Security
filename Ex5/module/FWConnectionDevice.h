@@ -46,6 +46,7 @@ typedef enum
     NONE,
     HTTP_FROM_INTERNAL_NETWORK,
     HTTP_FROM_EXTERNAL_NETWORK,
+    SMTP,
     FTP_DATA,
 } proxy_state_t;
 

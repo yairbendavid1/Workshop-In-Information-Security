@@ -25,6 +25,12 @@ int create_proxy(packet_information_t *packet_info, connection_t *conn){
             conn->proxy.side = INTERNAL;
             return is_proxy_connection(packet_info, conn);
         }
+        if (packet_info->dst_port == SMTP_PORT){
+            print_message("create_proxy: SMTP\n");
+            conn->proxy.proxy_state = SMTP;
+            conn->state.status = PROXY;
+            return is_proxy_connection(packet_info, conn);
+        }
     }
     if (packet_info->direction == DIRECTION_IN){
         // We only support HTTP for now
@@ -53,14 +59,14 @@ connection_t *find_proxy_connection(packet_information_t *packet_info){
     }
     // Now we need to check that the server credentials are the same as the sender of the packet
     // since we dont know in which network the server is, we will split into cases using the proxy state
-    if (conn->proxy.proxy_state == HTTP_FROM_INTERNAL_NETWORK){
+    if (conn->proxy.proxy_state == HTTP_FROM_INTERNAL_NETWORK || conn->proxy.proxy_state == SMTP){
         // In this case, the server is in the external network
         if (conn->outity.ip == packet_info->src_ip && conn->outity.port == packet_info->src_port){
             print_message("find_proxy_connection: found proxy\n");
             printk("intity IP: %d, intity port %d, outity IP: %d, outity port %d\n", conn->intity.ip, conn->intity.port, conn->outity.ip, conn->outity.port);
             return conn;
         }
-    } 
+    }
     if (conn->proxy.proxy_state == HTTP_FROM_EXTERNAL_NETWORK){
         // In this case, the server is in the internal network
         if (conn->intity.ip == packet_info->src_ip && conn->intity.port == packet_info->src_port){
@@ -172,6 +178,9 @@ int route_internal_proxy_connections(packet_information_t *packet_info, connecti
         // We need to check the proxy state to know which port to use
         if (conn->proxy.proxy_state == HTTP_FROM_INTERNAL_NETWORK){
             tcph->dest = htons(HTTP_FROM_INTERNAL_NETWORK_PORT);
+        }
+        else if (conn->proxy.proxy_state == SMTP){
+            tcph->dest = htons(SMTP_PORT);
         }
         else{
             // We don't support other protocols for now
@@ -353,6 +362,10 @@ void route_proxy_packet(packet_information_t *packet_info){
         if (conn->proxy.proxy_state == HTTP_FROM_INTERNAL_NETWORK){
             tcph->source = htons(80);
             printk("HTTP\n");
+        }
+        if (conn->proxy.proxy_state == SMTP){
+            tcph->source = htons(SMTP_PORT);
+            printk("SMTP\n");
         }
         printk("IP and Port: %d %d\n", htonl(conn->outity.ip), htons(conn->outity.port));
         printk("IP and Port: %d %d\n", conn->outity.ip, conn->outity.port);
