@@ -1,6 +1,6 @@
 import socket
 import re
-from ExternalProxyHandler import ExternalProxyHandler
+from proxyHandler import ProxyHandler
 import os
 import pickle
 import numpy as np
@@ -10,7 +10,7 @@ FAKE_PORT = 800
 FW_IN_LEG = '10.1.1.3'  # used for the firewall to communicate with the inside world
 FW_OUT_LEG = '10.1.2.3' # used for the firewall to communicate with the outside world
 
-class ExternalHTTPProxyHandler(ExternalProxyHandler):
+class HTTPDLP(ProxyHandler):
 
     def get_statistic_from_single_msg(self, msg):
         lines = msg.split("\n")
@@ -40,11 +40,7 @@ class ExternalHTTPProxyHandler(ExternalProxyHandler):
         return total
 
 
-
-    """ Represents HTTP proxy connection """
-
     def c_detect(self, message):
-        """ Enforces the content type """
         splited_msg = message.split('\r\n')
         ind = splited_msg.index("")
         body = "\n".join(splited_msg[ind+1:])
@@ -119,7 +115,7 @@ if __name__ == "__main__":
             break
 
         print("\nConnection accepted")
-        proxy = ExternalHTTPProxyHandler(connection, addr)
+        proxy = HTTPDLP(connection, addr)
         proxies.append(proxy)
         proxy.start()
 
