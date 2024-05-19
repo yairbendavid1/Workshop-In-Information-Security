@@ -59,10 +59,7 @@ class HTTPDLP(ProxyHandler):
         print(body_statistics)
         # now we need to transform the statistics into a numpy array
         data = np.array(body_statistics)
-        print("Statistics transformed")
-
         prediction = loaded_model.predict(data)
-        print("Prediction made")
         print(prediction)
         return int(prediction[0]) == 1
 

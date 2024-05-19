@@ -27,7 +27,6 @@ class ISPHandler(ExternalProxyHandler):
         It returns the modified text.
         """
         lines = text.splitlines()
-        print("Lines: \n", lines)
         modified_lines = [line for line in lines if not line.startswith("X-WCPAY-PLATFORM-CHECKOUT-USER:")]
 
         return "\r\n".join(modified_lines)
@@ -40,9 +39,6 @@ class ISPHandler(ExternalProxyHandler):
         """ Enforces the content type """
         
         # Extract header
-        separator = '\r\n\r\n'  # indicates end of HTTP header
-        # header_loc = message.index(separator)
-        # header = message[0:header_loc]
         header = message
 
         # Check if should block
