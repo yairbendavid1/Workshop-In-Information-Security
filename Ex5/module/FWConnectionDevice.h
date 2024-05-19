@@ -47,7 +47,6 @@ typedef enum
     HTTP_FROM_INTERNAL_NETWORK,
     HTTP_FROM_EXTERNAL_NETWORK,
     SMTP,
-    FTP_DATA,
 } proxy_state_t;
 
 // This is a flag that indicate if a proxy connection started in the INTERNAL network or in the EXTERNAL network.

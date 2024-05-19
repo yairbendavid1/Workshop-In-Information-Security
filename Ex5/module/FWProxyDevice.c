@@ -108,55 +108,7 @@ int is_proxy_connection(packet_information_t *packet_info, connection_t *conn){
         print_message("is_proxy_connection: external\n");
         return route_external_proxy_connections(packet_info, conn);
     }
-    // struct sk_buff *skb = packet_info->skb;
-    // struct iphdr *iph = ip_hdr(skb);
-    // struct tcphdr *tcph = tcp_hdr(skb);
-
-    // // we need to check the directions
-    // if (packet_info->direction == DIRECTION_OUT){
-    //     // We are in the internal->proxy case
-    //     // In this case we need to change the destination IP to the proxy IP
-    //     iph->daddr = htonl(FW_IN_LEG);
-
-    //     // we also need to change the destination port (in some cases) to the proxy port 
-    //     // We need to check the proxy state to know which port to use
-    //     if (conn->proxy.proxy_state == HTTP_FROM_INTERNAL_NETWORK){
-    //         tcph->dest = htons(HTTP_FROM_INTERNAL_NETWORK_PORT);
-    //     }
-    //     else{
-    //         // We don't support other protocols for now
-    //         return 0;
-    //     }
-    //     // Fix the checksums
-    //     fix_checksum(skb);
-    //     print_message("I2P: Packet from internal was proxied to FW\n");
-    //     return 1;
-    // }
-    // else{
-    //     // We are in the external->proxy case
-    //     // In this case we need to change the destinaion IP to the proxy IP
-    //     printk("leg IP, dst port: %d, %d\n", htonl(FW_OUT_LEG), packet_info->dst_port);
-    //     // connection_t *proxy = is_port_proxy_exist(&(packet_info->dst_port));
-    //     // if (proxy != NULL){
-    //     //     printk("proxy IP: %d\n", proxy->intity.ip);
-    //     //     if (proxy->outity.ip == packet_info->src_ip && proxy->outity.port == packet_info->src_port){
-    //     //         iph->saddr = htonl(FW_OUT_LEG);
-
-    //     //         fix_checksum(skb);
-
-    //     //         print_message("E2P: Packet from External was proxied to FW\n");
-    //     //         return 1;
-    //     //     }
-    //     // }
-    //     iph->daddr = htonl(FW_OUT_LEG);
-    //     printk("at E2P, daddt: %d\n", htonl(FW_OUT_LEG));
-    //     //AS FOR NOW, WE DON'T SUPPORT PROXYING FROM EXTERNAL NETWORK
-
-    //     //Fix the checksums
-    //     fix_checksum(skb);
-    //     print_message("E2P: Packet from External was proxied to FW\n");
-    //     return 1;
-    // }
+    
     // We should never reach here
     return 0;
 }
@@ -306,27 +258,6 @@ void route_proxy_packet(packet_information_t *packet_info){
         fix_checksum(skb);
         print_message("P2E: Source of Proxied Packet from FW to External has been changed.\n");
         return;
-        
-        
-        
-        
-        // conn = is_port_proxy_exist(&(packet_info->src_port));
-        // if (conn == NULL){
-        //     print_message("P2E: route_proxy_packet: can't find proxy");
-        //     return;
-        // }
-        // // we will check that the extity is the same as the destination of the packet since we dont clean the proxy table.
-        // if (conn->outity.ip != packet_info->dst_ip || conn->outity.port != packet_info->dst_port){
-        //     print_message("P2E: route_proxy_packet: connection doesn't match");
-        //     return;
-        // } 
-
-        // // Now we can change the source IP to the original source IP
-        // iph->saddr = conn->intity.ip;
-        // // Fix the checksums
-        // fix_checksum(skb);
-        // print_message("P2E: Source of Proxied Packet from FW to External has been changed.\n");
-        // return;
     }
     else{
         // We are in the proxy->internal case.
@@ -373,29 +304,6 @@ void route_proxy_packet(packet_information_t *packet_info){
         fix_checksum(skb);
         print_message("P2I: Source of Proxied Packet from FW to Internal has been changed.\n");
         return;
-
-
-
-
-
-        // To do so, we first need to find the connection of the original sender using the client credentials.
-        // conn = from_client_to_proxy_connection(&(packet_info->dst_ip), &(packet_info->dst_port), DIRECTION_IN);
-        // if (conn == NULL){
-        //     print_message("P2I: route_proxy_packet: can't find proxy");
-        //     return;
-        // }
-        // // Now we can change the source IP and port to the original sender
-        // iph->saddr = conn->outity.ip;
-        // if (conn->proxy.proxy_state == HTTP_FROM_INTERNAL_NETWORK){
-        //     tcph->source = htons(80);
-        //     printk("HTTP\n");
-        // }
-        // printk("IP and Port: %d %d\n", htonl(conn->outity.ip), htons(conn->outity.port));
-        // printk("IP and Port: %d %d\n", conn->outity.ip, conn->outity.port);
-        // // Fix the checksums
-        // fix_checksum(skb);
-        // print_message("P2I: Source of Proxied Packet from FW to Internal has been changed.\n");
-        // return;
     }
     return;
 }
@@ -427,26 +335,6 @@ connection_t *from_client_to_proxy_connection(__be32 *client_ip, __be16 *client_
 connection_t *is_port_proxy_exist(__be16 *proxy_port){
     return proxy_table[*proxy_port];
 }
-
-// int is_proxy(connection_t *conn, direction_t *direction, __be16 *port){
-//     if (*direction == DIRECTION_IN){
-//         return 0;
-//     }
-    
-//     if (*port == 80)
-//     {
-//         conn->proxy.proxy_state = REG_HTTP;
-//         return 1;
-//     }
-//     if (*port == 21)
-//     {
-//         conn->proxy.proxy_state = FTP_CREATE;
-//         return 1;
-//     }
-//     return 0;
-// }
-
-
 
 // This function gets a packet after modifying it and fix the checksums
 void fix_checksum(struct sk_buff *skb)
@@ -514,44 +402,5 @@ ssize_t set_proxy_port(struct device *dev, struct device_attribute *attr, const 
     proxy_table[proxy_port] = conn;
 
     return bsize;
-}
-
-
-
-ssize_t add_ftp_data(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
-{
-    __be32 ftp_ip, server_ip;
-    __be16 ftp_port;
-    connection_t *conn;
-    __u16 FTP_ADD_SIZE = 2 * sizeof(__be32) + sizeof(__be16);
-    if (count < FTP_ADD_SIZE)
-    {
-        return 0;
-    }
-
-    // Should get (client_ip, server_ip, ftp_data_port)
-    copy_from_buff_and_increase(&buf, &ftp_ip, sizeof(ftp_ip));
-    copy_from_buff_and_increase(&buf, &server_ip, sizeof(server_ip));
-    copy_from_buff_and_increase(&buf, &ftp_port, sizeof(ftp_port));
-
-    // Add an FTP data connection
-    conn = create_empty_connection();
-
-    // Set identifiers
-    conn->intity.ip = ftp_ip;
-    conn->intity.port = ftp_port;
-    conn->outity.ip = server_ip;
-    conn->outity.port = 0; // Wildcard - match to any port
-    
-
-    // Initialize connection state
-    conn->state.status = INIT;
-    conn->state.direction = DIRECTION_IN; // Now the client becomes the server
-
-    // Non-proxy connection
-    conn->proxy.proxy_state = FTP_DATA;
-    conn->proxy.proxy_port = 1;
-
-    return FTP_ADD_SIZE;
 }
 

@@ -81,7 +81,6 @@ static DEVICE_ATTR(conns, S_IWUSR | S_IRUGO, show_connections, NULL);
 
 static DEVICE_ATTR(set_port, S_IWUSR, NULL, set_proxy_port);
 
-static DEVICE_ATTR(add_ftp, S_IWUSR, NULL, add_ftp_data);
 
 
 // This function is called when the module is loaded.
@@ -204,14 +203,6 @@ static int __init my_module_init_function(void){
         goto set_proxy_file_creation_failed;
     }
 
-    if (device_create_file(proxy_device, (const struct device_attribute *)&dev_attr_add_ftp.attr))
-    {
-        goto add_proxy_file_creation_failed;
-    }
-
-
-
-
     /*
     Part 6: Registering the hook points.
     */
@@ -234,8 +225,6 @@ static int __init my_module_init_function(void){
 registeration_local_failed:
     nf_unregister_net_hook(&init_net, &prerouting_hook_point_op);
 registeration_pre_failed:
-    device_remove_file(proxy_device, (const struct device_attribute *)&dev_attr_add_ftp.attr);
-add_proxy_file_creation_failed:
     device_remove_file(proxy_device, (const struct device_attribute *)&dev_attr_set_port.attr);
 set_proxy_file_creation_failed:
     device_destroy(sysfs_class, MKDEV(proxy_major_number, 0));
@@ -268,7 +257,6 @@ sysfs_class_creation_failed:
 static void __exit my_module_exit_function(void){
     nf_unregister_net_hook(&init_net, &localout_hook_point_op);
     nf_unregister_net_hook(&init_net, &prerouting_hook_point_op);
-    device_remove_file(proxy_device, (const struct device_attribute *)&dev_attr_add_ftp.attr);
     device_remove_file(proxy_device, (const struct device_attribute *)&dev_attr_set_port.attr);
     device_destroy(sysfs_class, MKDEV(proxy_major_number, 0));
     unregister_chrdev(connections_major_number, "fw_logggg");
