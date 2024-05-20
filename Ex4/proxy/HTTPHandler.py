@@ -27,10 +27,7 @@ class HTTPProxyHandler(ProxyHandler):
     def filter_packet(self, message):
         """ Enforces the content type """
         
-        # Extract header
-        separator = '\r\n\r\n'  # indicates end of HTTP header
-        #header_loc = message.index(separator)
-        # header = message[0:header_loc]
+        
         header = message
         
         # Check if should block

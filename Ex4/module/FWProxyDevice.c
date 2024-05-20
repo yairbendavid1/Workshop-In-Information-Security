@@ -101,18 +101,6 @@ int is_proxy_connection(packet_information_t *packet_info, connection_t *conn){
         // We are in the external->proxy case
         // In this case we need to change the source IP to the proxy IP
         printk("leg IP, dst port: %d, %d\n", htonl(FW_OUT_LEG), packet_info->dst_port);
-        // connection_t *proxy = is_port_proxy_exist(&(packet_info->dst_port));
-        // if (proxy != NULL){
-        //     printk("proxy IP: %d\n", proxy->intity.ip);
-        //     if (proxy->outity.ip == packet_info->src_ip && proxy->outity.port == packet_info->src_port){
-        //         iph->saddr = htonl(FW_OUT_LEG);
-
-        //         fix_checksum(skb);
-
-        //         print_message("E2P: Packet from External was proxied to FW\n");
-        //         return 1;
-        //     }
-        // }
         iph->daddr = htonl(FW_OUT_LEG);
         printk("at E2P, daddt: %d\n", htonl(FW_OUT_LEG));
         //AS FOR NOW, WE DON'T SUPPORT PROXYING FROM EXTERNAL NETWORK
@@ -201,25 +189,6 @@ connection_t *is_port_proxy_exist(__be16 *proxy_port){
     return proxy_table[*proxy_port];
 }
 
-// int is_proxy(connection_t *conn, direction_t *direction, __be16 *port){
-//     if (*direction == DIRECTION_IN){
-//         return 0;
-//     }
-    
-//     if (*port == 80)
-//     {
-//         conn->proxy.proxy_state = REG_HTTP;
-//         return 1;
-//     }
-//     if (*port == 21)
-//     {
-//         conn->proxy.proxy_state = FTP_CREATE;
-//         return 1;
-//     }
-//     return 0;
-// }
-
-
 
 // This function gets a packet after modifying it and fix the checksums
 void fix_checksum(struct sk_buff *skb)
@@ -276,43 +245,3 @@ ssize_t set_proxy_port(struct device *dev, struct device_attribute *attr, const 
 
     return bsize;
 }
-
-
-
-ssize_t add_ftp_data(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
-{
-    __be32 ftp_ip, server_ip;
-    __be16 ftp_port;
-    connection_t *conn;
-    __u16 FTP_ADD_SIZE = 2 * sizeof(__be32) + sizeof(__be16);
-    if (count < FTP_ADD_SIZE)
-    {
-        return 0;
-    }
-
-    // Should get (client_ip, server_ip, ftp_data_port)
-    copy_from_buff_and_increase(&buf, &ftp_ip, sizeof(ftp_ip));
-    copy_from_buff_and_increase(&buf, &server_ip, sizeof(server_ip));
-    copy_from_buff_and_increase(&buf, &ftp_port, sizeof(ftp_port));
-
-    // Add an FTP data connection
-    conn = create_empty_connection();
-
-    // Set identifiers
-    conn->intity.ip = ftp_ip;
-    conn->intity.port = ftp_port;
-    conn->outity.ip = server_ip;
-    conn->outity.port = 0; // Wildcard - match to any port
-    
-
-    // Initialize connection state
-    conn->state.status = INIT;
-    conn->state.direction = DIRECTION_IN; // Now the client becomes the server
-
-    // Non-proxy connection
-    conn->proxy.proxy_state = FTP_DATA;
-    conn->proxy.proxy_port = 1;
-
-    return FTP_ADD_SIZE;
-}
-

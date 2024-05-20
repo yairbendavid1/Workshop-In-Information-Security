@@ -45,7 +45,6 @@ typedef enum
 {
     NONE,
     HTTP_FROM_INTERNAL_NETWORK,
-    FTP_DATA,
 } proxy_state_t;
 
 typedef struct
