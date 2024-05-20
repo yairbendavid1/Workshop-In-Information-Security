@@ -24,8 +24,6 @@ typedef enum
     A_FIN_B_ACK,
     A_FIN_B_FIN,
     A_FIN_B_FIN_ACK,
-    A_FIN2,
-    B_FIN2,
     B_ACK,
     PROXY,
 } tcp_status_t;
